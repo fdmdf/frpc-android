@@ -1,77 +1,56 @@
 package com.frpc.android.service
 
 import android.content.Context
-import android.os.Build
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * frpc 二进制管理：按设备 ABI 从 assets 安装到 filesDir/bin，支持版本比对与重装。
- * 二进制由 scripts/build-frpc.sh 从 frp 官方源码交叉编译（arm64-v8a / x86_64）。
+ * frpc 引擎定位。
+ *
+ * 引擎以 `libfrpc.so` 形式随 APK 打包在 jniLibs/<abi>/ 下，安装时由系统解压到
+ * nativeLibraryDir（该位置允许 execve；Android 10+ 起应用数据目录禁止执行二进制，
+ * 即 W^X 限制，见 https://developer.android.com/about/versions/10 highlights）。
+ * 因此运行时无需拷贝、无需授权，直接定位执行。
  */
 class FrpcBinaryManager(private val context: Context) {
 
-    /** 本仓库随包的 ABI（armv7 因 Go 不支持纯静态链接未提供，见 README） */
     private val supportedAbis = setOf("arm64-v8a", "x86_64")
 
-    private val binDir: File get() = File(context.filesDir, "bin")
-    private val binaryFile: File get() = File(binDir, "frpc")
-    private val versionFile: File get() = File(binDir, "frpc.version")
-
     /** 当前设备首选 ABI */
-    fun deviceAbi(): String? = Build.SUPPORTED_ABIS.firstOrNull { it in supportedAbis }
+    fun deviceAbi(): String? = android.os.Build.SUPPORTED_ABIS.firstOrNull { it in supportedAbis }
 
     fun isAbiSupported(): Boolean = deviceAbi() != null
 
-    /** assets 中随包 frpc 版本号 */
+    /** 解压后的引擎路径（nativeLibraryDir/libfrpc.so） */
+    fun binaryFile(): File =
+        File(context.applicationInfo.nativeLibraryDir, LIB_NAME)
+
+    /** 引擎是否就绪（存在且可执行） */
+    fun isReady(): Boolean = binaryFile().let { it.exists() && it.canExecute() }
+
+    /**
+     * 返回可执行的引擎文件；缺失时抛出带可操作说明的异常。
+     * 典型缺失原因：安装时未解压 native libs（extractNativeLibs 被关闭）、ABI 不匹配。
+     */
+    fun ensureInstalled(): File {
+        val file = binaryFile()
+        if (file.exists() && file.canExecute()) return file
+        if (!file.exists()) {
+            throw IllegalStateException(
+                "未找到 frpc 引擎（${file.absolutePath}），请重装应用",
+            )
+        }
+        throw IllegalStateException(
+            "frpc 引擎不可执行（${file.absolutePath}），请重装应用",
+        )
+    }
+
+    /** assets 中记录的引擎版本（与 jniLibs 内二进制由同一脚本产出，仅用于展示） */
     fun bundledVersion(): String = runCatching {
         context.assets.open("$ASSET_ROOT/VERSION").bufferedReader().use { it.readText().trim() }
     }.getOrDefault("unknown")
 
-    /** 已安装且版本一致 */
-    fun isInstalledCurrent(): Boolean {
-        if (!binaryFile.exists() || !binaryFile.canExecute()) return false
-        if (!versionFile.exists()) return false
-        return versionFile.readText().trim() == bundledVersion()
-    }
-
-    /** 确保安装可用二进制；返回可执行文件。ABI 不支持或安装失败时抛异常 */
-    suspend fun ensureInstalled(): File = withContext(Dispatchers.IO) {
-        val abi = deviceAbi() ?: throw IllegalStateException(
-            "unsupported abi: ${Build.SUPPORTED_ABIS.joinToString()}",
-        )
-        if (isInstalledCurrent()) return@withContext binaryFile
-        install(abi)
-        binaryFile
-    }
-
-    /** 强制重装（设置页「重新安装引擎」） */
-    suspend fun reinstall(): File = withContext(Dispatchers.IO) {
-        val abi = deviceAbi() ?: throw IllegalStateException(
-            "unsupported abi: ${Build.SUPPORTED_ABIS.joinToString()}",
-        )
-        binaryFile.delete()
-        versionFile.delete()
-        install(abi)
-        binaryFile
-    }
-
-    private fun install(abi: String) {
-        binDir.mkdirs()
-        val tmp = File(binDir, "frpc.tmp")
-        context.assets.open("$ASSET_ROOT/$abi/frpc").use { input ->
-            tmp.outputStream().use { output -> input.copyTo(output) }
-        }
-        if (!tmp.renameTo(binaryFile)) {
-            binaryFile.writeBytes(tmp.readBytes())
-            tmp.delete()
-        }
-        binaryFile.setExecutable(true)
-        versionFile.writeText(bundledVersion())
-    }
-
     private companion object {
+        const val LIB_NAME = "libfrpc.so"
         const val ASSET_ROOT = "frpc"
     }
 }

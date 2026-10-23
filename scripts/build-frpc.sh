@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# 交叉编译 frpc（frp v0.71.1）为 Android 二进制，产物放入 app/src/main/assets/frpc/<abi>/frpc
+# 交叉编译 frpc（frp v0.71.1）为 Android 二进制：
+#   - 产物放 androidApp/src/main/jniLibs/<abi>/libfrpc.so（安装时由系统解压到
+#     nativeLibraryDir 执行；Android 10+ 禁止从应用数据目录 exec，必须走 jniLibs）
+#   - VERSION 写入 androidApp/src/main/assets/frpc/VERSION（仅用于设置页展示）
 #
 # 用法：
 #   bash scripts/build-frpc.sh                    # 仅 arm64-v8a（默认，安装包最小）
@@ -20,7 +23,8 @@ FRP_VERSION="${FRP_VERSION:-v0.71.1}"
 GO="${GO:-go}"
 export GOPROXY="${GOPROXY:-https://goproxy.cn,direct}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="$REPO_ROOT/app/src/main/assets/frpc"
+JNILIBS="$REPO_ROOT/androidApp/src/main/jniLibs"
+ASSETS="$REPO_ROOT/androidApp/src/main/assets/frpc"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
@@ -41,23 +45,8 @@ printf '<!doctype html><title>frpc</title><p>admin web assets not bundled; JSON 
 
 cd "$FRP_SRC"
 
-build() {
-  local abi="$1" goarch="$2" goarm="$3"
-  echo "==> building $abi (GOOS=android GOARCH=$goarch${goarm:+ GOARM=$goarm})"
-  mkdir -p "$OUT/$abi"
-  if [ -n "$goarm" ]; then
-    CGO_ENABLED=1 CC="$(android_clang "$abi")" \
-      GOOS=android GOARCH="$goarch" GOARM="$goarm" \
-      "$GO" build -trimpath -ldflags "-s -w" -tags frpc -o "$OUT/$abi/frpc" ./cmd/frpc
-  else
-    CGO_ENABLED=0 \
-      GOOS=android GOARCH="$goarch" \
-      "$GO" build -trimpath -ldflags "-s -w" -tags frpc -o "$OUT/$abi/frpc" ./cmd/frpc
-  fi
-}
-
 android_clang() {
-  local ndk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/c/Users/Liao/AppData/Local/Android/Sdk}}/ndk"
+  local ndk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}/ndk"
   local latest
   latest="$(ls "$ndk" 2>/dev/null | sort -V | tail -1)"
   if [ -z "$latest" ]; then
@@ -67,22 +56,31 @@ android_clang() {
   echo "$ndk/$latest/toolchains/llvm/prebuilt/windows-x86_64/bin"
 }
 
+build() {
+  local abi="$1" goarch="$2"
+  echo "==> building $abi (GOOS=android GOARCH=$goarch) -> jniLibs/$abi/libfrpc.so"
+  mkdir -p "$JNILIBS/$abi"
+  CGO_ENABLED=0 \
+    GOOS=android GOARCH="$goarch" \
+    "$GO" build -trimpath -ldflags "-s -w" -tags frpc -o "$JNILIBS/$abi/libfrpc.so" ./cmd/frpc
+}
+
 # arm64-v8a：纯静态，无 NDK 依赖
-build arm64-v8a arm64 ""
+build arm64-v8a arm64
 
 # x86_64：android/amd64 需 cgo 外链（模拟器用，需要 NDK；SKIP_X86_64=0 时启用）
 if [ "${SKIP_X86_64:-1}" != "1" ]; then
-  NDK_BIN="$(android_clang x86_64)"
-  echo "==> building x86_64 (cgo via NDK)"
-  mkdir -p "$OUT/x86_64"
+  NDK_BIN="$(android_clang)"
+  echo "==> building x86_64 (cgo via NDK) -> jniLibs/x86_64/libfrpc.so"
+  mkdir -p "$JNILIBS/x86_64"
   CGO_ENABLED=1 CC="$NDK_BIN/x86_64-linux-android21-clang" \
     GOOS=android GOARCH=amd64 \
-    "$GO" build -trimpath -ldflags "-s -w" -tags frpc -o "$OUT/x86_64/frpc" ./cmd/frpc
+    "$GO" build -trimpath -ldflags "-s -w" -tags frpc -o "$JNILIBS/x86_64/libfrpc.so" ./cmd/frpc
 fi
 
 # armeabi-v7a：Go 不支持纯静态链接；如需支持必须走 NDK cgo（体积与兼容性权衡后未纳入）
-# build armeabi-v7a arm 7  # 取消注释并确保 NDK 可用
 
-echo "$FRP_VERSION" > "$OUT/VERSION"
+mkdir -p "$ASSETS"
+echo "$FRP_VERSION" > "$ASSETS/VERSION"
 echo "==> done:"
-ls -la "$OUT"/*/
+ls -la "$JNILIBS"/*/

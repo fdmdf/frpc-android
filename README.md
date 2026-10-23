@@ -41,7 +41,8 @@
 │       └── jvmCommonTest/         # 需要 JVM API 的测试（本地 HTTP 服务器集成测试）
 ├── androidApp/                    # 安卓应用（Compose UI + 前台服务 + 进程管理）
 │   └── src/main/
-│       ├── assets/frpc/<abi>/frpc # Go 交叉编译的 frpc 二进制（arm64-v8a / x86_64）
+│       ├── jniLibs/arm64-v8a/libfrpc.so  # Go 交叉编译的 frpc 引擎（安装时解压执行）
+│       ├── assets/frpc/VERSION    # 引擎版本号（仅展示）
 │       ├── java/com/frpc/android/ # Application/Activity/Service/Supervisor/UI
 │       └── res/                   # 中英文资源、主题、图标
 └── scripts/build-frpc.sh          # frpc 交叉编译脚本（可复现）
@@ -72,17 +73,19 @@ echo "sdk.dir=/path/to/Android/sdk" > local.properties
 ## frpc 引擎说明
 
 - 版本：**frp v0.71.1**，由 `scripts/build-frpc.sh` 从官方源码交叉编译（`CGO_ENABLED=0 GOOS=android GOARCH=arm64`，strip 后约 16.9MB）
-- 支持 ABI：**arm64-v8a**（全部现代真机）、**x86_64**（模拟器）
+- **打包方式**：以 `libfrpc.so` 形式放入 `androidApp/src/main/jniLibs/arm64-v8a/`，安装时由系统解压到 `nativeLibraryDir` 后直接执行
+  - 为什么不能放 assets 再拷到 filesDir：**Android 10+（targetSdk 29+）的 W^X 限制禁止应用从数据目录执行二进制**（SELinux `error=13 Permission denied`），jniLibs 是官方认可的执行位置
+  - 副作用：无需运行时拷贝（首次启动零成本）、卸载自动清理、天然按 ABI 分发
+- 支持 ABI：**arm64-v8a**（全部现代真机）；**x86_64**（模拟器）需 `SKIP_X86_64=0 bash scripts/build-frpc.sh` 额外编译后打入 APK
 - **armeabi-v7a 未支持**：Go 对 android/arm 32 位不支持 `CGO_ENABLED=0` 静态链接，上游 frp 官方发布版同样只提供 android/arm64
-- 二进制随 APK 分发，首次运行按 ABI 安装到 `filesDir/bin/`；设置页可查看版本并重装
-- 重新编译/升级 frpc：`bash scripts/build-frpc.sh`（自动写入 VERSION 文件触发替换）
+- 重新编译/升级 frpc：`bash scripts/build-frpc.sh`（自动写入 VERSION 文件供设置页展示）
 
 ## 已知限制（v1.0）
 
 - 导入 frpc.toml 时，未建模的高级字段会被丢弃：**插件（plugin）、健康检查（healthCheck）、注解（annotations）、metadatas、featureGates、includes、loadBalancer**。需要这些能力请直接使用 frpc.toml 原文件（可通过其他 frpc 客户端运行）
 - 界面暂不提供 visitor 之外的 visitor 高级字段编辑（keepTunnelOpen 等已支持）
 - Admin API 关闭时无在线状态/监控（仅日志）
-- 32 位（armeabi-v7a）设备不可用
+- 32 位（armeabi-v7a）设备不可用；x86_64 模拟器需自行用脚本编译引擎后打包
 - 界面编辑中途旋转屏幕不会丢失（草稿在 Activity 级 Store 中），但进程意外被杀后未保存草稿会丢失
 
 ## 开发说明

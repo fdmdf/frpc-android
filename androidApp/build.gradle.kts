@@ -44,6 +44,12 @@ android {
 
     packaging {
         resources.excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "META-INF/versions/9/previous-compilation-data.bin")
+        // frpc 引擎以 libfrpc.so 形式随 APK 分发，安装时解压到 nativeLibraryDir 后执行。
+        // 必须开启 legacyPackaging（extractNativeLibs=true）：APK 内压缩存储、安装时落盘，
+        // 否则 lib 以未压缩页对齐形式留在 APK 内无法 execve。
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }
 

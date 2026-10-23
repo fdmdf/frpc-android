@@ -20,7 +20,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -35,11 +34,9 @@ import com.frpc.android.ui.components.DropdownField
 import com.frpc.android.ui.components.SectionCard
 import com.frpc.android.ui.components.SwitchRow
 import kotlinx.coroutines.launch
-
 @Composable
 fun SettingsScreen(container: AppContainer) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val themeMode by container.settingsRepository.themeMode.collectAsStateWithLifecycle()
     val autoStart by container.settingsRepository.autoStartOnBoot.collectAsStateWithLifecycle()
     val defaultProfileId by container.settingsRepository.defaultProfileId.collectAsStateWithLifecycle()
@@ -117,13 +114,11 @@ fun SettingsScreen(container: AppContainer) {
                 text = stringResource(R.string.settings_binary_version, engineVersion, engineAbi),
                 style = MaterialTheme.typography.bodyMedium,
             )
-            TextButton(onClick = {
-                scope.launch {
-                    runCatching { container.binaryManager.reinstall() }
-                }
-            }) {
-                Text(stringResource(R.string.settings_binary_reinstall))
-            }
+            Text(
+                text = stringResource(R.string.settings_binary_note),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         SectionCard(title = stringResource(R.string.settings_about)) {

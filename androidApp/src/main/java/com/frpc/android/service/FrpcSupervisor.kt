@@ -193,9 +193,20 @@ object FrpcSupervisor {
             watchProcess(started, profile)
             startPollers()
         } catch (e: Exception) {
-            appendSystemLog(LogLevel.ERROR, "启动失败：${e.message ?: e}")
-            _state.update { it.copy(phase = Phase.ERROR, error = e.message ?: e.toString()) }
+            appendSystemLog(LogLevel.ERROR, "启动失败：${cleanErrorMessage(e)}")
+            _state.update { it.copy(phase = Phase.ERROR, error = cleanErrorMessage(e)) }
             stopPollers()
+        }
+    }
+
+    /** java.io.IOException 的 "Cannot run program \"x\" (in directory \"y\"): 原因" 只保留原因部分 */
+    private fun cleanErrorMessage(e: Exception): String {
+        val msg = e.message ?: e.toString()
+        val idx = msg.lastIndexOf("): ")
+        return if (msg.startsWith("Cannot run program") && idx > 0) {
+            msg.substring(idx + 3)
+        } else {
+            msg
         }
     }
 
