@@ -176,7 +176,7 @@ jobs:
         run: |
           set -euo pipefail
           SRC="$(ls androidApp/build/outputs/apk/release/*.apk | head -1)"
-          OUT="frpc-android-${{ needs.detect.outputs.app_version }}-frp${{ needs.detect.outputs.frp_version }}.apk"
+          OUT="frpc-android-${{ needs.detect.outputs.app_version }}-${{ needs.detect.outputs.frp_version }}.apk"
           cp "$SRC" "$OUT"
           ls -la "$OUT"
           echo "APK_PATH=$OUT" >> "$GITHUB_ENV"
