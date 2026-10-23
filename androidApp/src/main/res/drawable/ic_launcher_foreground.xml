@@ -1,23 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 应用图标前景：隧道拱门 + 数据流箭头（内网穿透） -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 网络地球：外圈 + 经纬线 + 两个节点 -->
+
+    <!-- 拱门 -->
+    <path
+        android:pathData="M31.6,77.2 L31.6,56.1 a22.36,22.36 0 0 1 44.72,0 L76.32,77.2"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="7.2"
+        android:strokeLineCap="round" />
+
+    <!-- 源点 -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M54,30 C41.4,30 31.2,40.2 31.2,52.8 C31.2,65.4 41.4,75.6 54,75.6 C66.6,75.6 76.8,65.4 76.8,52.8 C76.8,40.2 66.6,30 54,30 Z M54,33.6 C64.9,33.6 73.2,42.3 73.2,52.8 C73.2,63.3 64.9,72 54,72 C43.1,72 34.8,63.3 34.8,52.8 C34.8,42.3 43.1,33.6 54,33.6 Z" />
+        android:pathData="M41.3,65.4 m-3.2,0 a3.2,3.2 0 1,0 6.4,0 a3.2,3.2 0 1,0 -6.4,0" />
+
+    <!-- 箭杆 -->
+    <path
+        android:pathData="M45.5,65.4 L60.3,65.4"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4.7"
+        android:strokeLineCap="round" />
+
+    <!-- 箭头 -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M52.6,30 L55.4,30 L55.4,75.6 L52.6,75.6 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M31.2,51.6 L76.8,51.6 L76.8,54 L31.2,54 Z" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M40,44 m-3.6,0 a3.6,3.6 0 1,0 7.2,0 a3.6,3.6 0 1,0 -7.2,0" />
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M68,62 m-3.6,0 a3.6,3.6 0 1,0 7.2,0 a3.6,3.6 0 1,0 -7.2,0" />
+        android:pathData="M59.5,60.3 L67.9,65.4 L59.5,70.5 Z" />
 </vector>

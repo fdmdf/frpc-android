@@ -1,0 +1,193 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  # 每天检查 frp 官方是否发布新版本；有则自动编译引擎 + 打包 APK + 发布 Release
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      frp_version:
+        description: '强制使用指定 frp 版本（如 v0.71.1），留空则自动检测最新版'
+        required: false
+      force:
+        description: '即使该 frp 版本已发布过也重新发版'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  detect:
+    name: Detect frp version
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.detect.outputs.build }}
+      frp_version: ${{ steps.detect.outputs.frp_version }}
+      app_version: ${{ steps.detect.outputs.app_version }}
+      tag: ${{ steps.detect.outputs.tag }}
+      is_tag_push: ${{ steps.detect.outputs.is_tag_push }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve versions
+        id: detect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          CURRENT_FRP="$(cat androidApp/src/main/assets/frpc/VERSION | tr -d '[:space:]')"
+          APP_VERSION="$(grep -oE 'versionName = "[^"]+"' androidApp/build.gradle.kts | head -1 | sed 's/.*"\(.*\)"/\1/')"
+          echo "current frp in repo: $CURRENT_FRP, app: $APP_VERSION"
+
+          if [ "${{ github.event_name }}" = "push" ] && [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # 打 tag 发版：按仓库内现有引擎版本发布应用版本
+            FRP="$CURRENT_FRP"
+            TAG="${{ github.ref_name }}"
+            BUILD=true
+            IS_TAG=true
+          else
+            INPUT="${{ github.event.inputs.frp_version }}"
+            if [ -n "${INPUT:-}" ]; then
+              FRP="$INPUT"
+            else
+              FRP="$(curl -sSL https://api.github.com/repos/fatedier/frp/releases/latest | jq -r '.tag_name // empty')"
+            fi
+            if [ -z "${FRP:-}" ]; then
+              echo "cannot resolve frp version"; exit 1
+            fi
+            TAG="frp-${FRP}"
+            IS_TAG=false
+            if git rev-parse "refs/tags/$TAG" >/dev/null 2>&1 || git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+              echo "tag $TAG already exists -> skip (use force to override)"
+              BUILD=false
+            elif [ "$FRP" = "$CURRENT_FRP" ] && [ "${{ github.event.inputs.force }}" != "true" ]; then
+              echo "frp $FRP already bundled -> skip"
+              BUILD=false
+            else
+              BUILD=true
+            fi
+          fi
+
+          echo "build=$BUILD"
+          echo "frp_version=$FRP"
+          echo "app_version=$APP_VERSION"
+          echo "tag=$TAG"
+          echo "is_tag_push=$IS_TAG"
+          {
+            echo "build=$BUILD"
+            echo "frp_version=$FRP"
+            echo "app_version=$APP_VERSION"
+            echo "tag=$TAG"
+            echo "is_tag_push=$IS_TAG"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build APK
+    needs: detect
+    if: needs.detect.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK components
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build frpc engine (android/arm64)
+        env:
+          FRP_VERSION: ${{ needs.detect.outputs.frp_version }}
+          SKIP_X86_64: '1'
+        run: |
+          bash scripts/build-frpc.sh
+          cat androidApp/src/main/assets/frpc/VERSION
+
+      - name: Commit engine bump
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- androidApp/src/main/assets/frpc/VERSION androidApp/src/main/jniLibs; then
+            echo "engine unchanged, nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add androidApp/src/main/assets/frpc/VERSION androidApp/src/main/jniLibs
+          git commit -m "chore(frpc): bump engine to ${{ needs.detect.outputs.frp_version }}"
+          git push origin HEAD:${{ github.event.repository.default_branch }}
+
+      - name: Decode keystore
+        if: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: ./gradlew --no-daemon :shared:jvmTest :shared:testDebugUnitTest :androidApp:testDebugUnitTest
+
+      - name: Assemble release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: ./gradlew --no-daemon :androidApp:assembleRelease
+
+      - name: Rename APK
+        run: |
+          set -euo pipefail
+          SRC="$(ls androidApp/build/outputs/apk/release/*.apk | head -1)"
+          OUT="frpc-android-${{ needs.detect.outputs.app_version }}-frp${{ needs.detect.outputs.frp_version }}.apk"
+          cp "$SRC" "$OUT"
+          ls -la "$OUT"
+          echo "APK_PATH=$OUT" >> "$GITHUB_ENV"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.detect.outputs.tag }}
+          name: ${{ needs.detect.outputs.is_tag_push == 'true' && format('v{0}', needs.detect.outputs.app_version) || format('frp {0} 引擎更新', needs.detect.outputs.frp_version) }}
+          files: ${{ env.APK_PATH }}
+          generate_release_notes: ${{ needs.detect.outputs.is_tag_push == 'true' }}
+          body: |
+            ## frpc 安卓客户端 ${{ needs.detect.outputs.app_version }}
+
+            - 内置 frpc 引擎：**${{ needs.detect.outputs.frp_version }}**
+            - 适用 ABI：arm64-v8a
+            - 测试：shared 双端单测 + 应用单测全部通过
+
+            ### 安装
+            1. 下载下方 APK
+            2. 允许「未知来源」安装（小米等机型会提示未审核，可继续安装）
+            3. 首次启动按提示授予通知权限，配置 frps 地址与 Token
+
+            变更记录见 [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+          draft: false
+          prerelease: false

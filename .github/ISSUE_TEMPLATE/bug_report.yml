@@ -1,0 +1,82 @@
+name: Bug 反馈
+description: 报告一个可复现的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供完整信息，便于快速定位。
+  - type: input
+    id: app-version
+    attributes:
+      label: App 版本
+      description: 设置 → 关于 中的版本号
+      placeholder: "1.0.8"
+    validations:
+      required: true
+  - type: input
+    id: engine-version
+    attributes:
+      label: frpc 引擎版本
+      description: 设置 → frpc 引擎 中显示的版本
+      placeholder: "v0.71.1 (arm64-v8a)"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 机型与系统
+      placeholder: "小米 14 / HyperOS 2.0 (Android 15)"
+    validations:
+      required: true
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: 使用的协议 / 代理类型
+      multiple: true
+      options:
+        - tcp
+        - kcp
+        - quic
+        - websocket
+        - wss
+        - http / https 代理
+        - stcp / sudp / xtcp
+        - tcpmux
+        - 不确定
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 新建配置 ...
+        2. 添加代理 ...
+        3. 点击启动 ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相关日志
+      description: 日志页右上角「分享」导出后粘贴，注意隐去 token 等敏感信息
+      render: text
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认
+      options:
+        - label: 我已搜索过现有 Issue，未发现重复
+          required: true

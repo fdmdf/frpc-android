@@ -1,0 +1,24 @@
+Frpc 客户端 (Android)
+Copyright (c) 2026 Frpc 客户端 contributors
+
+This product bundles the frpc binary built from the frp project.
+
+--------------------------------------------------------------------------------
+fatedier/frp
+https://github.com/fatedier/frp
+License: Apache License 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+
+The frpc engine (`androidApp/src/main/jniLibs/arm64-v8a/libfrpc.so`) is compiled
+from the official frp source tree using `scripts/build-frpc.sh` with:
+
+    CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -trimpath -ldflags "-s -w" -tags frpc
+
+No modifications are made to the frp source code. The only build-time adjustment
+is providing `web/frpc/dist` (the official dashboard, built from the same
+source tree with `npm run build-only`) so that the `go:embed` directive resolves;
+the resulting assets are shipped unmodified.
+
+The bundled engine version is recorded in `androidApp/src/main/assets/frpc/VERSION`.
+--------------------------------------------------------------------------------
+
+UI and feature design inspired by luckjiawei/frpc-desktop (MIT).

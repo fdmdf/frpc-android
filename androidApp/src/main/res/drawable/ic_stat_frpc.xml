@@ -1,11 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 通知栏小图标：单色隧道 + 箭头 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
-    android:viewportHeight="24"
-    android:tint="?android:attr/colorControlNormal">
+    android:viewportHeight="24">
+
     <path
-        android:fillColor="@android:color/white"
-        android:pathData="M12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM12,20c-4.41,0 -8,-3.59 -8,-8s3.59,-8 8,-8 8,3.59 8,8 -3.59,8 -8,8zM12,4c-4.41,0 -8,3.59 -8,8h2c0,-3.31 2.69,-6 6,-6s6,2.69 6,6h2c0,-4.41 -3.59,-8 -8,-8zM12,8c-2.21,0 -4,1.79 -4,4s1.79,4 4,4 4,-1.79 4,-4 -1.79,-4 -4,-4z" />
+        android:pathData="M4.8,20 L4.8,13.6 a7.2,7.2 0 0 1 14.4,0 L19.2,20"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M8.4,15.9 m-1,0 a1,1 0 1,0 2,0 a1,1 0 1,0 -2,0" />
+
+    <path
+        android:pathData="M9.8,15.9 L13.2,15.9"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round" />
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M13,14 L16,15.9 L13,17.8 Z" />
 </vector>

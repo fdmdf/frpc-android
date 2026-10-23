@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Build & Test (Android)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK components
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests (shared JVM + Android, app)
+        run: ./gradlew --no-daemon :shared:jvmTest :shared:testDebugUnitTest :androidApp:testDebugUnitTest
+
+      - name: Lint (non-blocking)
+        continue-on-error: true
+        run: ./gradlew --no-daemon :androidApp:lintDebug
+
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon :androidApp:assembleDebug
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: frpc-android-debug
+          path: androidApp/build/outputs/apk/debug/*.apk
+          retention-days: 14
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            shared/build/reports/tests/
+            androidApp/build/reports/tests/
+          retention-days: 7
+
+  engine:
+    name: Verify frpc build script
+    # 验证 scripts/build-frpc.sh 在 Linux 上可复现（手动触发 / 推送 main 时）
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: false
+
+      - name: Build frpc (android/arm64)
+        env:
+          SKIP_X86_64: '1'
+        run: |
+          bash scripts/build-frpc.sh
+          ls -la androidApp/src/main/jniLibs/arm64-v8a/libfrpc.so
+
+      - name: Smoke test binary (Android ELF)
+        run: |
+          python3 - <<'PY'
+          data = open('androidApp/src/main/jniLibs/arm64-v8a/libfrpc.so', 'rb').read(20)
+          assert data[:4] == b'\x7fELF', 'not an ELF binary'
+          assert data[4] == 2, 'not ELF64'
+          assert int.from_bytes(data[18:20], 'little') == 0xB7, 'not AArch64'
+          print('OK: ELF64 AArch64')
+          PY

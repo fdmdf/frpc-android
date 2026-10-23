@@ -3,9 +3,9 @@ package com.frpc.android.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // 品牌色（frpc 蓝），用于未开启动态取色时的默认方案
-val BrandBlue = Color(0xFF1565C0)
+val BrandBlue = Color(0xFF0B57D0)
 val BrandBlueLight = Color(0xFF5E91F2)
-val BrandBlueDark = Color(0xFF0B3D91)
+val BrandBlueDark = Color(0xFF0039A6)
 
 val LightBackground = Color(0xFFFDFCFF)
 val LightSurface = Color(0xFFFFFFFF)

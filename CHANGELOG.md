@@ -1,0 +1,113 @@
+# 更新日志
+
+本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
+
+## [Unreleased]
+
+## [1.0.9] - 2026-10-24
+
+### 新增
+
+- 全新应用图标与通知图标：隧道拱门 + 数据流箭头（内网穿透语义），自适应图标 + 主题图标（monochrome）
+- 完整的开源工程配套：README（中/英）、CHANGELOG、CONTRIBUTING、CODE_OF_CONDUCT、SECURITY、NOTICE
+- GitHub Actions：`ci.yml`（单测/构建/引擎脚本校验）与 `release.yml`（每日检测 frp 新版本 → 自动编译引擎 → 构建签名 APK → 发布 Release）
+- 一键发布脚本 `scripts/publish.sh`（替换占位符、初始化远端、推送、同步 Wiki）
+- Wiki 文档源文件（`docs/wiki/`）：快速开始、配置指南、协议兼容性、故障排查、构建与发版、架构
+
+### 变更
+
+- Release 签名改为环境变量注入（`KEYSTORE_PATH` 等），未配置时保持未签名
+- 品牌色与图标统一为 `#0B57D0`
+
+## [1.0.8] - 2026-10-24
+
+### 新增
+
+- 内置 **frp 官方 Web 控制台**（Vue3 + Vite 构建产物随引擎打包）：手机浏览器访问 `http://127.0.0.1:7400/static/` 即可使用
+- 通知栏改为三行摘要：服务器 / 在线代理数与运行时长 / CPU 与内存，运行中每 5 秒刷新
+- 主页运行状态卡显示 PID、启动时间（北京时间）与状态页地址
+
+### 修复
+
+- 「关于」页版本号硬编码为 1.0.0，改为跟随构建版本
+
+### 变更
+
+- `scripts/build-frpc.sh` 支持三级回退：预构建产物 → npm 现场构建 → 迷你兜底页
+
+## [1.0.7] - 2026-10-24
+
+### 新增
+
+- 内置自包含迷你状态页（4.7KB，直连 `/api/status` 渲染代理状态），替代构建占位文本
+
+## [1.0.6] - 2026-10-24
+
+### 修复
+
+- **状态监控接口不可达**：Android 9+ 默认禁止明文 HTTP，访问 `127.0.0.1` 状态接口被系统拦截。新增 `network_security_config.xml` 仅对回环地址放行，并强制 `Proxy.NO_PROXY` 避免 VPN/系统代理拦截
+- 通知栏在线数与主页不一致（通知只读取状态接口数据源）
+
+### 变更
+
+- UI 中「Admin API」统一改称「状态监控（本机接口）」，并说明用途与监听范围
+
+## [1.0.5] - 2026-10-24
+
+### 修复
+
+- **CPU/内存/监控恒为 `--`**：引擎以 `libfrpc.so` 运行，进程名匹配错误导致 PID 无法获取
+- 未启用状态接口时代理一律显示「离线」，改为按日志推断（`proxy added` / `start proxy success` / `start error`），仍不可用时显示「未知」
+
+### 新增
+
+- 全 App 时间统一为北京时间（UTC+8），日志跨天自动带日期
+- 主页与配置页补充字段说明（端口/KCP/QUIC、TLS、预连接数、登录失败退出）
+- 随机端口显示为「随机端口」；开启状态接口后显示实际分配端口
+
+## [1.0.4] - 2026-10-24
+
+### 变更
+
+- 基于 frps v0.71.1 实机的全协议矩阵结论更新 UI 提示与 README 兼容性矩阵
+- 明确 kcp/quic 的 `serverPort` 必须与服务端监听端口一致
+
+## [1.0.3] - 2026-10-24
+
+### 修复
+
+- `needsRemotePort` 错误包含 tcpmux，会生成被 frps 拒绝的配置
+- 缺少「代理类型不支持的字段」校验：导入带 `remotePort` 的 sudp 配置会导致 frpc 启动失败
+
+### 新增
+
+- `ProxyConfig.sanitizedForType()`：导入与切换类型时自动清理不兼容字段
+- 校验器新增 `FIELD_NOT_SUPPORTED_FOR_TYPE` 规则与 6 个回归测试
+
+## [1.0.2] - 2026-10-24
+
+### 修复
+
+- **添加代理/访问者后草稿被清空**：编辑页在从子页返回时重新初始化草稿
+- 表单缺少必填项校验
+
+### 新增
+
+- 代理/访问者保存前复用 shared 层校验器，必填项标记 `*` 并展示错误列表
+- `ConfigEditorStore` 8 个回归测试
+
+## [1.0.1] - 2026-10-23
+
+### 修复
+
+- **真机 `error=13 Permission denied`**：Android 10+ 禁止从应用数据目录执行二进制。引擎改为以 `libfrpc.so` 随 jniLibs 分发，安装时由系统解压到 `nativeLibraryDir` 执行
+
+## [1.0.0] - 2026-10-23
+
+### 新增
+
+- 首个版本：Kotlin Multiplatform（Android + JVM）逻辑层与 Jetpack Compose Material 3 界面
+- 多配置档案、代理规则全类型 CRUD、访问者配置、`frpc.toml` 导入导出
+- 前台服务保活、崩溃自动重启、开机自启、通知栏常驻
+- 实时日志解析与过滤、CPU/内存监控、端口冲突预检、配置校验
+- 内置 frpc v0.71.1（arm64-v8a 静态交叉编译）

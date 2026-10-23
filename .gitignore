@@ -11,3 +11,12 @@ captures/
 *.aab
 *.hprof
 .kotlin/
+
+# 本地会话/记忆（不上传）
+.workbuddy/
+
+# 签名文件（绝不入库）
+*.jks
+*.keystore
+release.jks
+frpc-android-*.apk
