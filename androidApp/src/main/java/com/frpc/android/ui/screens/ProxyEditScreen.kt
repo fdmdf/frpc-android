@@ -133,7 +133,10 @@ fun ProxyEditScreen(
                     selected = current.type,
                     options = ProxyType.entries.map { it.id },
                     optionLabel = { id -> proxyTypeLabel(id) },
-                    onSelect = { v -> store.updateProxy { it.copy(type = v) } },
+                    onSelect = { v ->
+                        // 切换类型时清理新类型不支持的字段，避免生成 frp 拒绝的配置
+                        store.updateProxy { it.copy(type = v).sanitizedForType() }
+                    },
                 )
                 SwitchRow(
                     label = stringResource(R.string.field_proxy_enabled),
@@ -200,21 +203,7 @@ fun ProxyEditScreen(
                         supportingText = stringResource(R.string.field_custom_domains) + " / " + stringResource(R.string.field_subdomain),
                         isError = "customDomains" in errorFields,
                     )
-                    if (type == ProxyType.HTTP || type == ProxyType.HTTPS) {
-                        LabeledTextField(
-                            value = current.locations?.joinToString(",").orEmpty(),
-                            onValueChange = { v ->
-                                store.updateProxy {
-                                    it.copy(
-                                        locations = v.split(",")
-                                            .map { d -> d.trim() }
-                                            .filter { d -> d.isNotBlank() }
-                                            .ifEmpty { null },
-                                    )
-                                }
-                            },
-                            label = stringResource(R.string.field_locations),
-                        )
+                    if (type == ProxyType.HTTP || type == ProxyType.HTTPS || type == ProxyType.TCPMUX) {
                         LabeledTextField(
                             value = current.httpUser.orEmpty(),
                             onValueChange = { v ->
@@ -228,6 +217,22 @@ fun ProxyEditScreen(
                                 store.updateProxy { it.copy(httpPassword = v.ifBlank { null }) }
                             },
                             label = stringResource(R.string.field_http_password),
+                        )
+                    }
+                    if (type?.supportsHttpAdvanced == true) {
+                        LabeledTextField(
+                            value = current.locations?.joinToString(",").orEmpty(),
+                            onValueChange = { v ->
+                                store.updateProxy {
+                                    it.copy(
+                                        locations = v.split(",")
+                                            .map { d -> d.trim() }
+                                            .filter { d -> d.isNotBlank() }
+                                            .ifEmpty { null },
+                                    )
+                                }
+                            },
+                            label = stringResource(R.string.field_locations),
                         )
                         LabeledTextField(
                             value = current.hostHeaderRewrite.orEmpty(),

@@ -13,8 +13,8 @@ android {
         applicationId = "com.frpc.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 102
-        versionName = "1.0.2"
+        versionCode = 103
+        versionName = "1.0.3"
     }
 
     buildTypes {

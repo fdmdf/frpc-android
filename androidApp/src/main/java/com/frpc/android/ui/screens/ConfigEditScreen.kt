@@ -239,6 +239,11 @@ fun ConfigEditScreen(
                             }
                         },
                     )
+                    Text(
+                        text = stringResource(R.string.transport_protocol_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                     SwitchRow(
                         label = stringResource(R.string.field_tcp_mux),
                         checked = config.transport?.tcpMux ?: true,

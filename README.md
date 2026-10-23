@@ -70,6 +70,23 @@ echo "sdk.dir=/path/to/Android/sdk" > local.properties
 
 安装到设备后：进入「配置」页新建服务器配置 → 填写 frps 地址与 Token → 添加代理规则 → 回主页点击「启动」。
 
+## frpc 引擎兼容性（实测矩阵）
+
+内置 frpc **v0.71.1**。frp 协议向后兼容，但服务端版本/配置决定可用协议。以下矩阵在 **frps v0.51.3（ImmortalWrt/OpenWrt）** 上用真实 frpc 实测：
+
+| 能力 | frps ≥ 0.53 | frps 0.51.3 | 说明 |
+|---|---|---|---|
+| tcp 传输（TLS 开/关） | ✅ | ✅ | App 默认开 TLS，实测互通 |
+| websocket 传输 | ✅ | ✅ | |
+| kcp 传输 | ✅ | ✅* | *路由器本机实测成功；需客户端入站 UDP 不被防火墙拦截 |
+| stcp / xtcp 代理 | ✅ | ✅ | 含 visitor 全流程实测 |
+| quic 传输 | ✅ | ❌ | 0.53.0+ 才有 |
+| wss 传输 | ✅ | ❌ | 需服务端 TLS 证书配置 |
+| sudp 代理 | ✅ | ❌ | 需 frps `bind_udp_port`（0.53.0+） |
+| http/https/tcpmux 代理 | ✅ | ❌ | 需 frps 配置 `vhost_http_port` / `vhost_https_port` / `tcpmux_httpconnect_port` |
+
+服务端缺配置时，frpc 不会退出，对应代理会在状态里显示 `start error` 及原因（App 主页/监控页可见）。
+
 ## frpc 引擎说明
 
 - 版本：**frp v0.71.1**，由 `scripts/build-frpc.sh` 从官方源码交叉编译（`CGO_ENABLED=0 GOOS=android GOARCH=arm64`，strip 后约 16.9MB）
@@ -83,6 +100,7 @@ echo "sdk.dir=/path/to/Android/sdk" > local.properties
 ## 已知限制（v1.0）
 
 - 导入 frpc.toml 时，未建模的高级字段会被丢弃：**插件（plugin）、健康检查（healthCheck）、注解（annotations）、metadatas、featureGates、includes、loadBalancer**。需要这些能力请直接使用 frpc.toml 原文件（可通过其他 frpc 客户端运行）
+- 导入时会按代理类型自动清理不支持的字段（如 sudp/tcpmux 的 remotePort）——frp 按类型严格解析，多余字段会导致启动失败
 - 界面暂不提供 visitor 之外的 visitor 高级字段编辑（keepTunnelOpen 等已支持）
 - Admin API 关闭时无在线状态/监控（仅日志）
 - 32 位（armeabi-v7a）设备不可用；x86_64 模拟器需自行用脚本编译引擎后打包

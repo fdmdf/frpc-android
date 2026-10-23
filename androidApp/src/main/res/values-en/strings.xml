@@ -70,6 +70,7 @@
     <string name="field_admin_user">Username</string>
     <string name="field_admin_password">Password</string>
     <string name="field_transport_protocol">Transport protocol</string>
+    <string name="transport_protocol_hint">Compatibility: quic needs frps ≥ 0.53; wss/sudp need server-side support; http/https/tcpmux proxies need frps vhost ports</string>
     <string name="field_tcp_mux">TCP multiplexing</string>
     <string name="field_pool_count">Pre-connected pool count</string>
     <string name="field_tls_enable">Enable TLS</string>
@@ -129,6 +130,7 @@
     <string name="reason_duplicate_name">Duplicate name \"%1$s\"</string>
     <string name="reason_domain_or_subdomain_required">%1$s requires a subdomain or custom domain</string>
     <string name="reason_unsupported_value">%1$s is not supported here; edit frpc.toml manually</string>
+    <string name="reason_field_not_supported_for_type">%1$s is not valid for this proxy type (frp parses strictly; extra fields abort startup)</string>
     <string name="reason_type_field_missing">%1$s is missing a required field</string>
     <string name="validation_ok">Config validation passed</string>
 

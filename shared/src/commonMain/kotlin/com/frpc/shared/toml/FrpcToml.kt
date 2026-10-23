@@ -32,7 +32,11 @@ object FrpcToml {
     fun decode(text: String): FrpcConfig {
         val tree = parser.parseString(text)
         mergeDuplicateTables(tree)
-        return TomlMainDecoder.decode(FrpcConfig.serializer(), tree, inputConfig)
+        val config = TomlMainDecoder.decode(FrpcConfig.serializer(), tree, inputConfig)
+        // 导入时按代理类型清理不支持的字段（frp 严格解码，多余字段会导致启动失败）
+        return config.copy(
+            proxies = config.proxies.map { it.sanitizedForType() },
+        )
     }
 
     /**

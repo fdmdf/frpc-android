@@ -19,6 +19,8 @@ enum class Reason {
     TYPE_FIELD_MISSING,
     DOMAIN_OR_SUBDOMAIN_REQUIRED,
     UNSUPPORTED_VALUE,
+    /** 字段对该代理类型不适用（frp 按类型严格解码，会导致启动失败） */
+    FIELD_NOT_SUPPORTED_FOR_TYPE,
 }
 
 data class ValidationIssue(
@@ -147,6 +149,36 @@ object ConfigValidator {
             if (type == ProxyType.TCPMUX && proxy.multiplexer.isNullOrBlank()) {
                 issues += ValidationIssue(
                     Severity.ERROR, Scope.PROXY, "$prefix.multiplexer", Reason.EMPTY_REQUIRED_FIELD, proxy.name,
+                )
+            }
+            // 类型不支持的字段（frp 按类型严格解码，未知字段直接导致 frpc 启动失败）
+            if (proxy.remotePort != null && !type.needsRemotePort) {
+                issues += ValidationIssue(
+                    Severity.ERROR, Scope.PROXY, "$prefix.remotePort",
+                    Reason.FIELD_NOT_SUPPORTED_FOR_TYPE, proxy.name,
+                )
+            }
+            if (!type.domainBased) {
+                listOf("subdomain" to proxy.subdomain, "customDomains" to proxy.customDomains?.isNotEmpty())
+                    .forEach { (field, present) ->
+                        if (present == true) {
+                            issues += ValidationIssue(
+                                Severity.ERROR, Scope.PROXY, "$prefix.$field",
+                                Reason.FIELD_NOT_SUPPORTED_FOR_TYPE, proxy.name,
+                            )
+                        }
+                    }
+            }
+            if (!type.needsSecretKey && (!proxy.secretKey.isNullOrBlank() || !proxy.allowUsers.isNullOrEmpty())) {
+                issues += ValidationIssue(
+                    Severity.ERROR, Scope.PROXY, "$prefix.secretKey",
+                    Reason.FIELD_NOT_SUPPORTED_FOR_TYPE, proxy.name,
+                )
+            }
+            if (!type.supportsMultiplexer && !proxy.multiplexer.isNullOrBlank()) {
+                issues += ValidationIssue(
+                    Severity.ERROR, Scope.PROXY, "$prefix.multiplexer",
+                    Reason.FIELD_NOT_SUPPORTED_FOR_TYPE, proxy.name,
                 )
             }
         }

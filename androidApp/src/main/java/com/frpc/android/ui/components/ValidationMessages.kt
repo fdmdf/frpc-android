@@ -47,6 +47,7 @@ fun reasonTemplateRes(reason: Reason): Int = when (reason) {
     Reason.DUPLICATE_NAME -> R.string.reason_duplicate_name
     Reason.DOMAIN_OR_SUBDOMAIN_REQUIRED -> R.string.reason_domain_or_subdomain_required
     Reason.UNSUPPORTED_VALUE -> R.string.reason_unsupported_value
+    Reason.FIELD_NOT_SUPPORTED_FOR_TYPE -> R.string.reason_field_not_supported_for_type
     Reason.TYPE_FIELD_MISSING -> R.string.reason_type_field_missing
 }
 

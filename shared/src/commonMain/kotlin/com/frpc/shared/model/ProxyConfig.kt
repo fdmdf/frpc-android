@@ -14,21 +14,37 @@ enum class ProxyType(val id: String) {
     TCPMUX("tcpmux"),
     ;
 
-    /** 是否需要 remotePort（frps 监听端口） */
+    /**
+     * 是否使用 remote_port（frps 监听端口）。
+     * 注意：仅 tcp/udp 支持（见 frp pkg/config/legacy/proxy.go：只有
+     * TCPProxyConf/UDPProxyConf 有 RemotePort，tcpmux 走 vhost 域名）。
+     */
     val needsRemotePort: Boolean
-        get() = this == TCP || this == UDP || this == TCPMUX
+        get() = this == TCP || this == UDP
 
-    /** 是否需要本地服务地址 */
+    /** 本地服务地址（local_ip/local_port）：所有类型的基础字段 */
     val needsLocalAddr: Boolean
-        get() = this != TCPMUX
+        get() = true
 
     /** 是否需要 secretKey */
     val needsSecretKey: Boolean
         get() = this == STCP || this == SUDP || this == XTCP
 
-    /** 是否基于域名访问（http/https） */
+    /** 是否基于域名访问（http/https/tcpmux，DomainConf） */
     val domainBased: Boolean
         get() = this == HTTP || this == HTTPS || this == TCPMUX
+
+    /** 是否支持 locations / host_header_rewrite（仅 http） */
+    val supportsHttpAdvanced: Boolean
+        get() = this == HTTP
+
+    /** 是否支持 http_user / http_password（http 与 tcpmux） */
+    val supportsHttpAuth: Boolean
+        get() = this == HTTP || this == TCPMUX
+
+    /** 是否支持 multiplexer（仅 tcpmux） */
+    val supportsMultiplexer: Boolean
+        get() = this == TCPMUX
 
     companion object {
         fun fromId(id: String): ProxyType? = entries.firstOrNull { it.id == id }
@@ -66,6 +82,29 @@ data class ProxyConfig(
     val transport: ProxyTransportConfig? = null,
 ) {
     val proxyType: ProxyType? get() = ProxyType.fromId(type)
+
+    /**
+     * 清理当前类型不支持的字段。
+     * frp 按代理类型严格解码配置（未知字段直接报错退出），例如 sudp 带
+     * remotePort 会让 frpc 启动失败。导入外部 TOML 或切换代理类型时调用，
+     * 保证生成的配置一定能被 frpc/frps 接受。
+     */
+    fun sanitizedForType(): ProxyConfig {
+        val type = proxyType ?: return this
+        return copy(
+            remotePort = if (type.needsRemotePort) remotePort else null,
+            subdomain = if (type.domainBased) subdomain else null,
+            customDomains = if (type.domainBased) customDomains else null,
+            locations = if (type.supportsHttpAdvanced) locations else null,
+            httpUser = if (type.supportsHttpAuth) httpUser else null,
+            httpPassword = if (type.supportsHttpAuth) httpPassword else null,
+            hostHeaderRewrite = if (type.supportsHttpAdvanced) hostHeaderRewrite else null,
+            routeByHTTPUser = if (type.supportsHttpAuth) routeByHTTPUser else null,
+            multiplexer = if (type.supportsMultiplexer) multiplexer else null,
+            secretKey = if (type.needsSecretKey) secretKey else null,
+            allowUsers = if (type.needsSecretKey) allowUsers else null,
+        )
+    }
 }
 
 @Serializable
