@@ -72,20 +72,24 @@ echo "sdk.dir=/path/to/Android/sdk" > local.properties
 
 ## frpc 引擎兼容性（实测矩阵）
 
-内置 frpc **v0.71.1**。frp 协议向后兼容，但服务端版本/配置决定可用协议。以下矩阵在 **frps v0.51.3（ImmortalWrt/OpenWrt）** 上用真实 frpc 实测：
+内置 frpc **v0.71.1**。以下矩阵在 **frps v0.71.1（ImmortalWrt 23.05 / OpenWRT，x86）** 上用真实 frpc 二进制逐项实测（登录 + 管理 API + 真实数据回环）：
 
-| 能力 | frps ≥ 0.53 | frps 0.51.3 | 说明 |
-|---|---|---|---|
-| tcp 传输（TLS 开/关） | ✅ | ✅ | App 默认开 TLS，实测互通 |
-| websocket 传输 | ✅ | ✅ | |
-| kcp 传输 | ✅ | ✅* | *路由器本机实测成功；需客户端入站 UDP 不被防火墙拦截 |
-| stcp / xtcp 代理 | ✅ | ✅ | 含 visitor 全流程实测 |
-| quic 传输 | ✅ | ❌ | 0.53.0+ 才有 |
-| wss 传输 | ✅ | ❌ | 需服务端 TLS 证书配置 |
-| sudp 代理 | ✅ | ❌ | 需 frps `bind_udp_port`（0.53.0+） |
-| http/https/tcpmux 代理 | ✅ | ❌ | 需 frps 配置 `vhost_http_port` / `vhost_https_port` / `tcpmux_httpconnect_port` |
+| 能力 | 结果 | 服务端配置要求 |
+|---|---|---|
+| tcp 传输（TLS 开/关） | ✅ | 无（App 默认开 TLS） |
+| websocket 传输 | ✅ | 无 |
+| kcp 传输 | ✅ | **`kcp_bind_port` 必须等于客户端 `serverPort`** |
+| quic 传输 | ✅ | **`quic_bind_port` 必须等于客户端 `serverPort`**（如 7003） |
+| stcp / xtcp 代理 | ✅ | 无（visitor 全流程实测） |
+| sudp 代理 | ✅ | 无 UDP 端口要求（visitor 模式，实测 UDP 回环） |
+| http 代理 | ✅ | `vhost_http_port` + `customDomains` |
+| https 代理 | ✅ | `vhost_https_port`；**本地服务必须本身是 HTTPS**（TLS 透传，frps 只按 SNI 路由） |
+| tcpmux 代理 | ✅ | `tcpmux_httpconnect_port`（httpconnect 实测 CONNECT 隧道） |
+| wss 传输 | ❌ | frps 自身 TLS 下不可用（服务端 TLS 解包后走 yamux，与 websocket 升级不兼容）；需在 frps 前置 nginx/CDN 做 TLS 终止 |
 
-服务端缺配置时，frpc 不会退出，对应代理会在状态里显示 `start error` 及原因（App 主页/监控页可见）。
+**关键结论**：frpc 的 `protocol=kcp/quic` 时**不会自动改写端口**，始终拨 `serverAddr:serverPort`。因此服务端 kcp/quic 监听端口必须与客户端填写的端口一致（同一台 frps 上 kcp 与 quic 需要一个占用主端口、另一个用独立端口，客户端按需切换）。
+
+服务端缺配置时 frpc 不会退出，对应代理会显示 `start error` 及原因（App 主页/监控页可见）。
 
 ## frpc 引擎说明
 

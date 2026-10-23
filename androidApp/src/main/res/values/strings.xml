@@ -75,7 +75,8 @@
     <string name="field_admin_user">用户名</string>
     <string name="field_admin_password">密码</string>
     <string name="field_transport_protocol">连接协议</string>
-    <string name="transport_protocol_hint">兼容性：quic 需 frps ≥ 0.53；wss/sudp 需服务端支持；http/https/tcpmux 代理需 frps 配置 vhost 端口</string>
+    <string name="transport_protocol_hint">kcp/quic：服务器端口须填 frps 对应监听端口（kcp_bind_port / quic_bind_port）
+wss 需服务端前置 TLS 反代；http/https/tcpmux 需 frps 配置 vhost 端口（https 代理的本地服务须为 HTTPS）</string>
     <string name="field_tcp_mux">TCP 多路复用</string>
     <string name="field_pool_count">预连接数</string>
     <string name="field_tls_enable">启用 TLS</string>

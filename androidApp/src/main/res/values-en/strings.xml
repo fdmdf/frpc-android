@@ -70,7 +70,8 @@
     <string name="field_admin_user">Username</string>
     <string name="field_admin_password">Password</string>
     <string name="field_transport_protocol">Transport protocol</string>
-    <string name="transport_protocol_hint">Compatibility: quic needs frps ≥ 0.53; wss/sudp need server-side support; http/https/tcpmux proxies need frps vhost ports</string>
+    <string name="transport_protocol_hint">kcp/quic: server port must equal the frps listen port (kcp_bind_port / quic_bind_port)
+wss needs an external TLS reverse proxy; http/https/tcpmux need frps vhost ports (https proxy requires an HTTPS local service)</string>
     <string name="field_tcp_mux">TCP multiplexing</string>
     <string name="field_pool_count">Pre-connected pool count</string>
     <string name="field_tls_enable">Enable TLS</string>
