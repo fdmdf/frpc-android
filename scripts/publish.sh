@@ -74,21 +74,12 @@ echo "==> 4/5 推送代码"
 git push -u origin main
 
 echo "==> 5/5 同步 Wiki"
-TMP="$(mktemp -d)"
-if git clone "https://github.com/${OWNER}/${REPO}.wiki.git" "$TMP" 2>/dev/null; then
-  cp docs/wiki/*.md "$TMP"/
-  (
-    cd "$TMP"
-    git add -A
-    git commit -q -m "docs: sync wiki from repository" 2>/dev/null || true
-    git push
-  )
+if bash "$ROOT/scripts/sync-wiki.sh" "$OWNER" "$REPO"; then
   echo "    Wiki 已同步"
 else
-  echo "    跳过：Wiki 仓库尚不存在。请在仓库 Settings → Features 勾选 Wiki 后重跑："
-  echo "      git clone https://github.com/${OWNER}/${REPO}.wiki.git wiki && cp docs/wiki/*.md wiki/ && cd wiki && git push"
+  echo "    跳过：Wiki 仓库尚不存在。请先在 https://github.com/${OWNER}/${REPO}/wiki 创建首页，再执行："
+  echo "      bash scripts/sync-wiki.sh ${OWNER} ${REPO}"
 fi
-rm -rf "$TMP"
 
 echo ""
 echo "完成: https://github.com/${OWNER}/${REPO}"
