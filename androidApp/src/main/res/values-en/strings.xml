@@ -167,6 +167,7 @@
     <string name="settings_notification_request">Grant</string>
     <string name="settings_binary">frpc engine</string>
     <string name="settings_binary_version">Version %1$s (%2$s)</string>
+    <string name="settings_binary_path">Engine path: %1$s (%2$s)</string>
     <string name="settings_binary_note">The engine ships inside the app as libfrpc.so (extracted to a system directory at install time, avoiding the Android 10+ data-directory exec restriction); updating the app updates the engine. 32-bit (armeabi-v7a) devices are not supported.</string>
     <string name="settings_about">About</string>
     <string name="settings_about_version">Version %1$s</string>

@@ -178,6 +178,7 @@
     <string name="settings_notification_request">去授权</string>
     <string name="settings_binary">frpc 引擎</string>
     <string name="settings_binary_version">版本 %1$s（%2$s）</string>
+    <string name="settings_binary_path">引擎路径：%1$s（%2$s）</string>
     <string name="settings_binary_note">引擎以 libfrpc.so 形式随应用分发（安装时解压到系统目录执行，规避 Android 10+ 数据目录执行限制），升级应用即可更新引擎。32 位（armeabi-v7a）设备不受支持。</string>
     <string name="settings_about">关于</string>
     <string name="settings_about_version">版本 %1$s</string>

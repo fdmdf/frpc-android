@@ -31,6 +31,7 @@ import com.frpc.android.data.ThemeMode
 import com.frpc.android.di.AppContainer
 import com.frpc.android.service.FrpcSupervisor
 import com.frpc.android.ui.components.DropdownField
+import com.frpc.android.ui.components.MonoText
 import com.frpc.android.ui.components.SectionCard
 import com.frpc.android.ui.components.SwitchRow
 import kotlinx.coroutines.launch
@@ -113,6 +114,15 @@ fun SettingsScreen(container: AppContainer) {
             Text(
                 text = stringResource(R.string.settings_binary_version, engineVersion, engineAbi),
                 style = MaterialTheme.typography.bodyMedium,
+            )
+            // 运行时引擎实际路径：新版应为 /data/app/.../lib/arm64/libfrpc.so（jniLibs 解压位）
+            MonoText(
+                text = stringResource(
+                    R.string.settings_binary_path,
+                    container.binaryManager.binaryFile().absolutePath,
+                    if (container.binaryManager.isReady()) "就绪" else "缺失",
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = stringResource(R.string.settings_binary_note),
