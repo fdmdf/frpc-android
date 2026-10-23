@@ -135,16 +135,16 @@
 # 1. SDK 路径
 echo "sdk.dir=$HOME/Android/Sdk" > local.properties
 
-# 2. 单测 + Debug 包
+# 2. 若仓库中缺少引擎二进制（首次克隆 / 引擎未入库），先生成
+FRP_VERSION=v0.71.1 bash scripts/build-frpc.sh
+
+# 3. 单测 + Debug 包
 ./gradlew :shared:jvmTest :shared:testDebugUnitTest :androidApp:testDebugUnitTest
 ./gradlew :androidApp:assembleDebug
 
-# 3. Release（未配置签名时产出 unsigned APK）
+# 4. Release（未配置签名时产出 unsigned APK）
 KEYSTORE_PATH=/path/to/release.jks KEYSTORE_PASSWORD=*** KEY_ALIAS=frpc KEY_PASSWORD=*** \
   ./gradlew :androidApp:assembleRelease
-
-# 4. 重建 frpc 引擎（可选，默认使用仓库内已编译产物）
-FRP_VERSION=v0.71.1 bash scripts/build-frpc.sh
 ```
 
 > Release 签名通过环境变量注入（`KEYSTORE_PATH` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`），未提供时构建保持未签名，便于本地验证。

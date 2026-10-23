@@ -31,6 +31,19 @@ jobs:
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
+      - name: Set up Go (only if engine binary is missing)
+        if: ${{ hashFiles('androidApp/src/main/jniLibs/arm64-v8a/libfrpc.so') == '' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: false
+
+      - name: Build frpc engine (only if missing)
+        if: ${{ hashFiles('androidApp/src/main/jniLibs/arm64-v8a/libfrpc.so') == '' }}
+        env:
+          SKIP_X86_64: '1'
+        run: bash scripts/build-frpc.sh
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
