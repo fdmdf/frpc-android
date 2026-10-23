@@ -33,8 +33,20 @@
     <string name="home_memory">内存</string>
     <string name="home_online_proxies">在线代理</string>
     <string name="home_proxies">代理规则</string>
-    <string name="home_admin_off">未启用 Admin API，状态与监控不可用（可在配置中开启）</string>
-    <string name="home_admin_unreachable">Admin API 无响应，frpc 可能未完全启动</string>
+    <string name="home_admin_off">未启用 Admin API：在线状态由日志推断，CPU/内存监控不可用（可在配置中开启）</string>
+    <string name="home_admin_unreachable">Admin API 无响应，状态暂由日志推断（frpc 可能仍在启动）</string>
+    <string name="home_overview_hint">CPU/内存为 frpc 进程实时占用；在线代理数需要 Admin API 统计，关闭时按日志推断</string>
+    <string name="home_started_at">%1$s 启动</string>
+    <string name="home_uptime_tip">运行时长自 frpc 进程启动起算（北京时间显示）</string>
+    <string name="proxy_status_online">在线</string>
+    <string name="proxy_status_error">异常</string>
+    <string name="proxy_status_pending">启动中</string>
+    <string name="proxy_status_unknown">未知</string>
+    <string name="proxy_status_off">--</string>
+    <string name="proxy_local_label">本地</string>
+    <string name="proxy_remote_label">远程</string>
+    <string name="proxy_remote_random">随机端口</string>
+    <string name="log_timezone_note">时间均为北京时间（UTC+8）</string>
     <string name="home_quick_stats">概览</string>
 
     <!-- 运行状态 -->
@@ -70,6 +82,11 @@
     <string name="field_auth_method">认证方式</string>
     <string name="field_auth_token">认证 Token</string>
     <string name="field_admin_enabled">启用 Admin API（状态监控）</string>
+    <string name="field_admin_enabled_hint">开启后 App 可读取代理在线状态与资源监控；仅监听 127.0.0.1，不对外暴露</string>
+    <string name="field_tls_hint">服务端不支持 TLS 时请关闭（frp 0.50 以下无 TLS 支持）</string>
+    <string name="field_pool_count_hint">预建连接数，降低建连延迟；0 表示不预建</string>
+    <string name="field_login_fail_exit_hint">开启后首次登录失败即退出；关闭则持续重连（手机网络频繁切换建议关闭）</string>
+    <string name="field_server_port_hint">tcp/websocket 填 frps 的 bind_port；kcp/quic 时须填其对应监听端口</string>
     <string name="field_admin_addr">监听地址</string>
     <string name="field_admin_port">监听端口</string>
     <string name="field_admin_user">用户名</string>

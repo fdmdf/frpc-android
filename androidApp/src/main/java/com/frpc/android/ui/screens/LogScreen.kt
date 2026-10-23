@@ -119,6 +119,13 @@ fun LogScreen(container: AppContainer) {
             )
         }
 
+        Text(
+            text = stringResource(R.string.log_timezone_note),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 16.dp, top = 2.dp),
+        )
+
         if (filtered.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(

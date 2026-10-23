@@ -101,7 +101,8 @@ class FrpcTomlTest {
         assertTrue("transport" !in toml, "transport section should be omitted")
         assertTrue("[[proxies]]" !in toml, "no proxies should be emitted")
         val decoded = FrpcToml.decode(toml)
-        assertEquals(config, decoded)
+        // 解码时 webServer 取默认值（App 默认开启 Admin API），其余保持
+        assertEquals(config.copy(webServer = WebServerConfig()), decoded)
     }
 
     @Test

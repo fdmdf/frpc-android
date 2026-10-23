@@ -64,6 +64,10 @@ object FrpcSupervisor {
     private val _status = MutableStateFlow<ProxyStatusSnapshot?>(null)
     val status: StateFlow<ProxyStatusSnapshot?> = _status.asStateFlow()
 
+    /** 日志推断的代理状态（Admin API 不可用时的兜底数据源） */
+    private val _logProxyStates = MutableStateFlow<Map<String, LogProxyState>>(emptyMap())
+    val logProxyStates: StateFlow<Map<String, LogProxyState>> = _logProxyStates.asStateFlow()
+
     private val _adminReachable = MutableStateFlow(false)
     val adminReachable: StateFlow<Boolean> = _adminReachable.asStateFlow()
 
@@ -146,6 +150,7 @@ object FrpcSupervisor {
     private suspend fun startInternal(profile: ServerProfile) {
         stopping = false
         cpuTracker.reset()
+        _logProxyStates.value = emptyMap()
         _state.update {
             it.copy(
                 phase = Phase.STARTING,
@@ -232,6 +237,7 @@ object FrpcSupervisor {
         _stats.value = null
         _cpuPercent.value = null
         _adminReachable.value = false
+        _logProxyStates.value = emptyMap()
         appendSystemLog(LogLevel.INFO, "frpc 已停止")
     }
 
@@ -322,7 +328,7 @@ object FrpcSupervisor {
     /**
      * 查找 frpc 子进程 PID。
      * Android 13 以下没有公开的 Process.pid() 子进程查询 API，扫描 /proc：
-     * comm == "frpc" 且 ppid == 本进程。
+     * 父进程为本进程，且进程名为 frpc / libfrpc.so（引擎以 jniLibs/libfrpc.so 运行）。
      */
     private fun findChildPid(): Int? {
         val myPid = android.os.Process.myPid()
@@ -336,7 +342,8 @@ object FrpcSupervisor {
                     val comm = text.substringAfter('(').substringBefore(')')
                     val tail = text.substringAfterLast(')').trim().split(' ')
                     val ppid = tail.getOrNull(1)?.toIntOrNull()
-                    if (comm == "frpc" && ppid == myPid) pid else null
+                    val isFrpc = comm == "frpc" || comm.startsWith("libfrpc")
+                    if (isFrpc && ppid == myPid) pid else null
                 }
                 ?.firstOrNull()
         }.getOrNull()
@@ -354,10 +361,24 @@ object FrpcSupervisor {
     }
 
     private fun appendLog(line: LogLine) {
+        updateProxyStateFromLog(line)
         synchronized(logBuffer) {
             logBuffer.addLast(line)
             while (logBuffer.size > maxLogs) logBuffer.removeFirst()
             _logs.value = logBuffer.toList()
+        }
+    }
+
+    /**
+     * 从 frpc 日志推断代理状态（Admin API 关闭/不可用时的兜底），
+     * 具体解析规则见 [ProxyLogParser]。
+     */
+    private fun updateProxyStateFromLog(line: LogLine) {
+        when (val event = ProxyLogParser.parse(line.message)) {
+            is ProxyLogEvent.Update ->
+                _logProxyStates.update { it + (event.name to event.state) }
+            ProxyLogEvent.Reset -> _logProxyStates.value = emptyMap()
+            null -> Unit
         }
     }
 }

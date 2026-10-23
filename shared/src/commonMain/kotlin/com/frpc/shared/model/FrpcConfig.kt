@@ -22,7 +22,11 @@ data class FrpcConfig(
     val loginFailExit: Boolean = false,
     val log: LogConfig? = null,
     val auth: AuthConfig = AuthConfig(),
-    val webServer: WebServerConfig? = null,
+    /**
+     * Admin API（webServer）默认开启：App 的在线状态/资源监控依赖它。
+     * 仅监听 127.0.0.1，不对外暴露；置为 null 可关闭。
+     */
+    val webServer: WebServerConfig? = WebServerConfig(),
     val transport: TransportConfig? = null,
     val udpPacketSize: Int? = null,
     val proxies: List<ProxyConfig> = emptyList(),

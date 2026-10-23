@@ -1,8 +1,8 @@
 package com.frpc.android.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,9 +32,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.frpc.android.R
+import com.frpc.android.data.ServerProfile
 import com.frpc.android.di.AppContainer
 import com.frpc.android.service.FrpcService
 import com.frpc.android.service.FrpcSupervisor
+import com.frpc.android.service.LogProxyPhase
 import com.frpc.android.ui.components.SectionCard
 import com.frpc.android.ui.components.StatusChip
 import com.frpc.android.ui.nav.AppNavigator
@@ -43,9 +45,11 @@ import com.frpc.android.ui.theme.StatusError
 import com.frpc.android.ui.theme.StatusIdle
 import com.frpc.android.ui.theme.StatusRunning
 import com.frpc.android.ui.theme.StatusStarting
+import com.frpc.android.util.formatClock
 import com.frpc.android.util.formatDuration
 import com.frpc.android.util.formatMemoryKb
 import com.frpc.android.util.formatPercent
+import com.frpc.shared.model.ProxyConfig
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -54,6 +58,7 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
     val context = LocalContext.current
     val state by FrpcSupervisor.state.collectAsStateWithLifecycle()
     val status by FrpcSupervisor.status.collectAsStateWithLifecycle()
+    val logProxyStates by FrpcSupervisor.logProxyStates.collectAsStateWithLifecycle()
     val stats by FrpcSupervisor.stats.collectAsStateWithLifecycle()
     val cpu by FrpcSupervisor.cpuPercent.collectAsStateWithLifecycle()
     val adminReachable by FrpcSupervisor.adminReachable.collectAsStateWithLifecycle()
@@ -73,6 +78,7 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
         }
     }
     val uptime = state.startedAtMs?.let { formatDuration(nowMs - it) } ?: "--"
+    val startedAtText = state.startedAtMs?.let { formatClock(it) }
 
     val phaseLabel = when (state.phase) {
         FrpcSupervisor.Phase.IDLE -> stringResource(R.string.phase_idle)
@@ -88,12 +94,15 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
         else -> StatusIdle
     }
 
-    val onlineCount = status?.all?.count { it.status == "running" } ?: 0
-    val totalCount = currentProfile?.config?.proxies?.size ?: 0
+    val proxies = proxiesOf(currentProfile)
+    // 在线数优先取 Admin API，其次日志推断
+    val onlineCount = status?.all?.count { it.status == "running" }
+        ?: logProxyStates.count { it.value.phase == LogProxyPhase.RUNNING }
+    val totalCount = proxies.size
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
@@ -113,6 +122,19 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
                         text = state.error ?: "",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                if (state.phase == FrpcSupervisor.Phase.RUNNING) {
+                    Text(
+                        text = buildString {
+                            append(currentProfile?.serverSummary ?: "")
+                            if (state.pid != null) append(" · PID ${state.pid}")
+                            if (startedAtText != null) {
+                                append(" · ").append(stringResource(R.string.home_started_at, startedAtText))
+                            }
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Row(
@@ -194,13 +216,21 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     StatCell(stringResource(R.string.home_cpu), formatPercent(cpu))
-                    StatCell(stringResource(R.string.home_memory), stats?.let { formatMemoryKb(it.rssKb) } ?: "--")
+                    StatCell(
+                        stringResource(R.string.home_memory),
+                        stats?.let { formatMemoryKb(it.rssKb) } ?: "--",
+                    )
                     StatCell(stringResource(R.string.home_uptime), uptime)
                     StatCell(
                         stringResource(R.string.home_online_proxies),
-                        if (state.adminEnabled) "$onlineCount/$totalCount" else "--",
+                        if (totalCount > 0) "$onlineCount/$totalCount" else "--",
                     )
                 }
+                Text(
+                    text = stringResource(R.string.home_overview_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (state.phase == FrpcSupervisor.Phase.RUNNING && state.adminEnabled && !adminReachable) {
                     Text(
                         text = stringResource(R.string.home_admin_unreachable),
@@ -220,7 +250,6 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
 
         item {
             SectionCard(title = stringResource(R.string.home_proxies)) {
-                val proxies = currentProfile?.config?.proxies ?: emptyList()
                 if (proxies.isEmpty()) {
                     Text(
                         text = stringResource(R.string.proxies_empty),
@@ -230,14 +259,35 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
                 }
             }
         }
-        items(proxiesOf(currentProfile)) { proxy ->
-            val item = status?.item(proxy.name)
-            val (label, color) = when (item?.status) {
-                "running" -> "在线" to StatusRunning
-                "error" -> "异常" to StatusError
-                null -> if (state.phase == FrpcSupervisor.Phase.RUNNING) "离线" to StatusIdle else "--" to StatusIdle
-                else -> item.status to StatusIdle
+        items(proxies) { proxy ->
+            val adminItem = status?.item(proxy.name)
+            val logState = logProxyStates[proxy.name]
+            // 状态优先级：Admin API 实际状态 > 日志推断 > 未知
+            val (label, color) = when {
+                adminItem?.status == "running" ->
+                    stringResource(R.string.proxy_status_online) to StatusRunning
+                adminItem?.status == "error" ->
+                    stringResource(R.string.proxy_status_error) to StatusError
+                adminItem != null -> adminItem.status to StatusIdle
+                logState?.phase == LogProxyPhase.RUNNING ->
+                    stringResource(R.string.proxy_status_online) to StatusRunning
+                logState?.phase == LogProxyPhase.ERROR ->
+                    stringResource(R.string.proxy_status_error) to StatusError
+                logState?.phase == LogProxyPhase.PENDING ->
+                    stringResource(R.string.proxy_status_pending) to StatusStarting
+                state.phase == FrpcSupervisor.Phase.RUNNING ->
+                    stringResource(R.string.proxy_status_unknown) to StatusIdle
+                else -> stringResource(R.string.proxy_status_off) to StatusIdle
             }
+            val remoteText = when {
+                !adminItem?.remoteAddr.isNullOrBlank() -> adminItem?.remoteAddr ?: ""
+                proxy.remotePort == null || proxy.remotePort == 0 ->
+                    stringResource(R.string.proxy_remote_random)
+                else -> ":${proxy.remotePort}"
+            }
+            val errorText = adminItem?.err?.takeIf { it.isNotBlank() }
+                ?: logState?.error?.takeIf { it.isNotBlank() }
+
             SectionCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -250,20 +300,22 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
                             text = buildString {
                                 append(proxy.type.uppercase())
                                 append(" · ")
+                                append(stringResource(R.string.proxy_local_label))
+                                append(" ")
                                 append(proxy.localIP ?: "127.0.0.1")
                                 append(":")
                                 append(proxy.localPort?.toString() ?: "?")
-                                if (proxy.remotePort != null) {
-                                    append(" → :")
-                                    append(proxy.remotePort.toString())
-                                }
+                                append(" → ")
+                                append(stringResource(R.string.proxy_remote_label))
+                                append(" ")
+                                append(remoteText)
                             },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        if (item?.err?.isNotBlank() == true) {
+                        if (errorText != null) {
                             Text(
-                                text = item.err ?: "",
+                                text = errorText,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.error,
                             )
@@ -276,7 +328,7 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
     }
 }
 
-private fun proxiesOf(profile: com.frpc.android.data.ServerProfile?) =
+private fun proxiesOf(profile: ServerProfile?): List<ProxyConfig> =
     profile?.config?.proxies ?: emptyList()
 
 @Composable

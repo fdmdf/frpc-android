@@ -6,6 +6,53 @@ import java.time.format.DateTimeFormatter
 
 enum class LogLevel { TRACE, DEBUG, INFO, WARN, ERROR }
 
+/** 代理状态（日志推断，Admin API 不可用时兜底） */
+enum class LogProxyPhase { PENDING, RUNNING, ERROR }
+
+data class LogProxyState(
+    val phase: LogProxyPhase,
+    val error: String? = null,
+)
+
+/** 日志中反映的代理状态事件 */
+sealed interface ProxyLogEvent {
+    data class Update(val name: String, val state: LogProxyState) : ProxyLogEvent
+    /** 控制连接断开：所有代理状态回到未知 */
+    data object Reset : ProxyLogEvent
+}
+
+/**
+ * 从 frpc 日志正文推断代理状态（Admin API 不可用时的兜底）。
+ * frpc 0.7x 输出示例：
+ *   proxy added: [123]
+ *   [123] start proxy success
+ *   [123] start error: proxy [123] already exists
+ * 控制连接断开时输出 control writer is closing / client exit success。
+ */
+object ProxyLogParser {
+    private val ADDED = Regex("""proxy added: \[([^\]]+)]""")
+    private val STARTED = Regex("""\[([^\]]+)] start proxy success""")
+    private val ERROR = Regex("""\[([^\]]+)] start error: (.+)""")
+    private val RESET_MARKERS = listOf("control writer is closing", "client exit success")
+
+    fun parse(message: String): ProxyLogEvent? {
+        ADDED.find(message)?.let { m ->
+            return ProxyLogEvent.Update(m.groupValues[1], LogProxyState(LogProxyPhase.PENDING))
+        }
+        STARTED.find(message)?.let { m ->
+            return ProxyLogEvent.Update(m.groupValues[1], LogProxyState(LogProxyPhase.RUNNING))
+        }
+        ERROR.find(message)?.let { m ->
+            return ProxyLogEvent.Update(
+                m.groupValues[1],
+                LogProxyState(LogProxyPhase.ERROR, m.groupValues[2].trim()),
+            )
+        }
+        if (RESET_MARKERS.any { message.contains(it) }) return ProxyLogEvent.Reset
+        return null
+    }
+}
+
 data class LogLine(
     val timeMs: Long,
     val level: LogLevel,

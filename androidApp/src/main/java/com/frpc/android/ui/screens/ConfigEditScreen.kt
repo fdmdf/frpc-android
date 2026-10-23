@@ -142,6 +142,7 @@ fun ConfigEditScreen(
                         value = config.serverPort.toString(),
                         onValueChange = { v -> store.update { it.copy(serverPort = v.toIntOrNull() ?: 7000) } },
                         label = stringResource(R.string.field_server_port),
+                        supportingText = stringResource(R.string.field_server_port_hint),
                     )
                     LabeledTextField(
                         value = config.user,
@@ -158,6 +159,7 @@ fun ConfigEditScreen(
                         label = stringResource(R.string.field_login_fail_exit),
                         checked = config.loginFailExit,
                         onCheckedChange = { v -> store.update { it.copy(loginFailExit = v) } },
+                        supportingText = stringResource(R.string.field_login_fail_exit_hint),
                     )
                 }
             }
@@ -197,7 +199,7 @@ fun ConfigEditScreen(
                                 )
                             }
                         },
-                        supportingText = stringResource(R.string.home_admin_off),
+                        supportingText = stringResource(R.string.field_admin_enabled_hint),
                     )
                     config.webServer?.let { ws ->
                         LabeledTextField(
@@ -261,6 +263,7 @@ fun ConfigEditScreen(
                             }
                         },
                         label = stringResource(R.string.field_pool_count),
+                        supportingText = stringResource(R.string.field_pool_count_hint),
                     )
                     SwitchRow(
                         label = stringResource(R.string.field_tls_enable),
@@ -271,6 +274,7 @@ fun ConfigEditScreen(
                                 it.copy(transport = transport.copy(tls = (transport.tls ?: com.frpc.shared.model.TlsConfig()).copy(enable = v)))
                             }
                         },
+                        supportingText = stringResource(R.string.field_tls_hint),
                     )
                     LabeledTextField(
                         value = config.transport?.proxyURL.orEmpty(),

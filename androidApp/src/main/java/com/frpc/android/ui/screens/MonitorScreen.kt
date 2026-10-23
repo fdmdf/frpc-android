@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +36,7 @@ import com.frpc.android.ui.components.StatusChip
 import com.frpc.android.ui.theme.StatusError
 import com.frpc.android.ui.theme.StatusIdle
 import com.frpc.android.ui.theme.StatusRunning
+import com.frpc.android.ui.theme.StatusStarting
 import com.frpc.android.util.formatDuration
 import com.frpc.android.util.formatMemoryKb
 import com.frpc.android.util.formatPercent
@@ -46,6 +48,7 @@ fun MonitorScreen(container: AppContainer) {
     val stats by FrpcSupervisor.stats.collectAsStateWithLifecycle()
     val cpu by FrpcSupervisor.cpuPercent.collectAsStateWithLifecycle()
     val status by FrpcSupervisor.status.collectAsStateWithLifecycle()
+    val logProxyStates by FrpcSupervisor.logProxyStates.collectAsStateWithLifecycle()
 
     val cpuHistory = remember { mutableStateListOf<Float>() }
     val memHistory = remember { mutableStateListOf<Float>() }
@@ -124,8 +127,8 @@ fun MonitorScreen(container: AppContainer) {
         }
         item {
             SectionCard(title = stringResource(R.string.monitor_proxy_status)) {
-                val items = status?.all ?: emptyList()
-                if (items.isEmpty()) {
+                val adminItems = status?.all ?: emptyList()
+                if (adminItems.isEmpty() && logProxyStates.isEmpty()) {
                     Text(
                         text = if (state.adminEnabled) "--" else stringResource(R.string.home_admin_off),
                         style = MaterialTheme.typography.bodyMedium,
@@ -134,35 +137,74 @@ fun MonitorScreen(container: AppContainer) {
                 }
             }
         }
-        itemsCounted(status?.all ?: emptyList()) { item ->
-            SectionCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = item.name, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            text = item.type.uppercase() + " · " +
-                                (item.remoteAddr.ifBlank { item.localAddr }),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        if (item.err.isNotBlank()) {
+        // Admin API 有数据时用真实状态；否则展示日志推断结果
+        val adminItems = status?.all ?: emptyList()
+        if (adminItems.isNotEmpty()) {
+            itemsCounted(adminItems) { item ->
+                SectionCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = item.name, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                text = item.err,
+                                text = item.type.uppercase() + " · " +
+                                    (item.remoteAddr.ifBlank { item.localAddr }),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.error,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            if (item.err.isNotBlank()) {
+                                Text(
+                                    text = item.err,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
                         }
+                        val (label, color) = when (item.status) {
+                            "running" -> stringResource(R.string.proxy_status_online) to StatusRunning
+                            "error" -> stringResource(R.string.proxy_status_error) to StatusError
+                            else -> item.status to StatusIdle
+                        }
+                        StatusChip(text = label, color = color)
                     }
-                    val (label, color) = when (item.status) {
-                        "running" -> "在线" to StatusRunning
-                        "error" -> "异常" to StatusError
-                        else -> item.status to StatusIdle
+                }
+            }
+        } else {
+            items(logProxyStates.entries.toList()) { (name, logState) ->
+                SectionCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = name, style = MaterialTheme.typography.titleMedium)
+                            if (logState.error != null) {
+                                Text(
+                                    text = logState.error,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            } else {
+                                Text(
+                                    text = stringResource(R.string.home_admin_off),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        val (label, color) = when (logState.phase) {
+                            com.frpc.android.service.LogProxyPhase.RUNNING ->
+                                stringResource(R.string.proxy_status_online) to StatusRunning
+                            com.frpc.android.service.LogProxyPhase.ERROR ->
+                                stringResource(R.string.proxy_status_error) to StatusError
+                            else -> stringResource(R.string.proxy_status_pending) to StatusStarting
+                        }
+                        StatusChip(text = label, color = color)
                     }
-                    StatusChip(text = label, color = color)
                 }
             }
         }
