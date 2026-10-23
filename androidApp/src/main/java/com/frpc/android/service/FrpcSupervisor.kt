@@ -1,0 +1,352 @@
+package com.frpc.android.service
+
+import com.frpc.android.FrpcApplication
+import com.frpc.android.data.ConfigRepository
+import com.frpc.android.data.ServerProfile
+import com.frpc.shared.admin.FrpcAdminClient
+import com.frpc.shared.admin.ProxyStatusSnapshot
+import com.frpc.shared.runtime.CpuUsageTracker
+import com.frpc.shared.runtime.ProcessStats
+import com.frpc.shared.runtime.ProcessStatsReader
+import com.frpc.shared.toml.FrpcToml
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import java.io.File
+import java.util.concurrent.TimeUnit
+
+/**
+ * frpc 运行时中枢（进程级单例，UI 与 Service 共享）。
+ * 职责：二进制安装、TOML 生成、子进程启停/看护、日志采集、admin API 状态轮询、资源监控。
+ */
+object FrpcSupervisor {
+
+    enum class Phase { IDLE, STARTING, RUNNING, STOPPING, ERROR }
+
+    data class RuntimeState(
+        val phase: Phase = Phase.IDLE,
+        val profileId: String? = null,
+        val profileName: String = "",
+        val pid: Int? = null,
+        val startedAtMs: Long? = null,
+        val error: String? = null,
+        val adminEnabled: Boolean = false,
+        val adminPort: Int = 0,
+        val restartCount: Int = 0,
+        val abi: String? = null,
+    ) {
+        val isActive: Boolean get() = phase == Phase.STARTING || phase == Phase.RUNNING || phase == Phase.STOPPING
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private lateinit var appContext: FrpcApplication
+    private lateinit var configRepository: ConfigRepository
+    private lateinit var binaryManager: FrpcBinaryManager
+
+    private val _state = MutableStateFlow(RuntimeState())
+    val state: StateFlow<RuntimeState> = _state.asStateFlow()
+
+    private val maxLogs = 3000
+    private val logBuffer = ArrayDeque<LogLine>()
+    private val _logs = MutableStateFlow<List<LogLine>>(emptyList())
+    val logs: StateFlow<List<LogLine>> = _logs.asStateFlow()
+
+    private val _status = MutableStateFlow<ProxyStatusSnapshot?>(null)
+    val status: StateFlow<ProxyStatusSnapshot?> = _status.asStateFlow()
+
+    private val _adminReachable = MutableStateFlow(false)
+    val adminReachable: StateFlow<Boolean> = _adminReachable.asStateFlow()
+
+    private val _stats = MutableStateFlow<ProcessStats?>(null)
+    val stats: StateFlow<ProcessStats?> = _stats.asStateFlow()
+
+    private val _cpuPercent = MutableStateFlow<Float?>(null)
+    val cpuPercent: StateFlow<Float?> = _cpuPercent.asStateFlow()
+
+    private var process: Process? = null
+    private var watchJob: Job? = null
+    private var statusJob: Job? = null
+    private var statsJob: Job? = null
+    private var adminClient: FrpcAdminClient? = null
+
+    private val statsReader = ProcessStatsReader()
+    private val cpuTracker = CpuUsageTracker()
+
+    @Volatile
+    private var stopping = false
+
+    private const val MAX_RESTARTS = 5
+    private const val STATUS_INTERVAL_MS = 4000L
+    private const val STATS_INTERVAL_MS = 2000L
+    private val BACKOFF_MS = longArrayOf(2000, 5000, 10_000, 30_000, 60_000)
+
+    fun attach(app: FrpcApplication) {
+        appContext = app
+        configRepository = app.container.configRepository
+        binaryManager = app.container.binaryManager
+    }
+
+    // ---------------------------------------------------------------- 公开操作
+
+    fun requestStart(profile: ServerProfile) {
+        scope.launch {
+            val current = _state.value
+            if (current.isActive) {
+                if (current.profileId == profile.id && current.phase == Phase.RUNNING) return@launch
+                stopInternal()
+            }
+            startInternal(profile)
+        }
+    }
+
+    fun requestStop() {
+        scope.launch { stopInternal() }
+    }
+
+    /** 重载配置：有 admin API 走 /api/reload；否则重启进程 */
+    fun requestReload() {
+        scope.launch {
+            val st = _state.value
+            val profile = configRepository.find(st.profileId) ?: return@launch
+            val client = adminClient
+            if (st.phase == Phase.RUNNING && client != null) {
+                val ok = runCatching { client.reload() }.isSuccess
+                appendSystemLog(
+                    if (ok) LogLevel.INFO else LogLevel.ERROR,
+                    if (ok) "已通过 admin API 重载配置" else "admin API 重载失败",
+                )
+            } else {
+                stopInternal()
+                startInternal(profile)
+            }
+        }
+    }
+
+    fun clearLogs() {
+        synchronized(logBuffer) {
+            logBuffer.clear()
+            _logs.value = emptyList()
+        }
+    }
+
+    fun logsSnapshot(): List<LogLine> = synchronized(logBuffer) { logBuffer.toList() }
+
+    // ---------------------------------------------------------------- 内部实现
+
+    private suspend fun startInternal(profile: ServerProfile) {
+        stopping = false
+        cpuTracker.reset()
+        _state.update {
+            it.copy(
+                phase = Phase.STARTING,
+                error = null,
+                profileId = profile.id,
+                profileName = profile.name,
+                pid = null,
+                startedAtMs = null,
+                restartCount = 0,
+            )
+        }
+        appendSystemLog(LogLevel.INFO, "启动配置「${profile.name}」→ ${profile.serverSummary}")
+        try {
+            val binary = binaryManager.ensureInstalled()
+            val tomlFile = writeToml(profile)
+            val builder = ProcessBuilder(binary.absolutePath, "-c", tomlFile.absolutePath)
+                .directory(appContext.filesDir)
+                .redirectErrorStream(true)
+            val started = builder.start()
+            process = started
+
+            val webServer = profile.config.webServer
+            val adminEnabled = webServer != null && webServer.port > 0
+            _state.update {
+                it.copy(
+                    phase = Phase.RUNNING,
+                    pid = findChildPid(),
+                    startedAtMs = System.currentTimeMillis(),
+                    adminEnabled = adminEnabled,
+                    adminPort = webServer?.port ?: 0,
+                    abi = binaryManager.deviceAbi(),
+                )
+            }
+            runCatching { configRepository.markUsed(profile.id) }
+
+            if (adminEnabled && webServer != null) {
+                adminClient = FrpcAdminClient(
+                    addr = webServer.addr,
+                    port = webServer.port,
+                    user = webServer.user,
+                    password = webServer.password,
+                )
+            }
+            collectOutput(started)
+            watchProcess(started, profile)
+            startPollers()
+        } catch (e: Exception) {
+            appendSystemLog(LogLevel.ERROR, "启动失败：${e.message ?: e}")
+            _state.update { it.copy(phase = Phase.ERROR, error = e.message ?: e.toString()) }
+            stopPollers()
+        }
+    }
+
+    private suspend fun stopInternal() {
+        stopping = true
+        _state.update { it.copy(phase = Phase.STOPPING) }
+        appendSystemLog(LogLevel.INFO, "正在停止 frpc…")
+        runCatching { adminClient?.stop() }
+        val current = process
+        runCatching {
+            current?.destroy()
+            if (current != null && !current.waitFor(3, TimeUnit.SECONDS)) {
+                current.destroyForcibly()
+            }
+        }
+        watchJob?.cancel()
+        watchJob = null
+        process = null
+        adminClient = null
+        stopPollers()
+        _state.value = RuntimeState(phase = Phase.IDLE, abi = binaryManager.deviceAbi())
+        _status.value = null
+        _stats.value = null
+        _cpuPercent.value = null
+        _adminReachable.value = false
+        appendSystemLog(LogLevel.INFO, "frpc 已停止")
+    }
+
+    private fun watchProcess(proc: Process, profile: ServerProfile) {
+        watchJob?.cancel()
+        watchJob = scope.launch {
+            val exitCode = runCatching { proc.waitFor() }.getOrNull()
+            if (stopping) return@launch
+            appendSystemLog(LogLevel.WARN, "frpc 进程意外退出 (exit=$exitCode)，准备重启")
+            _status.value = null
+            val restarts = _state.value.restartCount
+            if (restarts < MAX_RESTARTS) {
+                val waitMs = BACKOFF_MS[restarts.coerceAtMost(BACKOFF_MS.lastIndex)]
+                _state.update { it.copy(phase = Phase.STARTING, restartCount = restarts + 1, pid = null) }
+                delay(waitMs)
+                startInternal(profile)
+            } else {
+                _state.update { it.copy(phase = Phase.ERROR, error = "frpc 多次异常退出，已停止自动重启（连续 $MAX_RESTARTS 次）") }
+                stopPollers()
+            }
+        }
+    }
+
+    private fun collectOutput(proc: Process) {
+        scope.launch(Dispatchers.IO) {
+            runCatching {
+                proc.inputStream.bufferedReader().forEachLine { line ->
+                    appendLog(FrpcLogParser.parse(line))
+                }
+            }
+        }
+    }
+
+    private fun startPollers() {
+        statusJob?.cancel()
+        statsJob?.cancel()
+        statusJob = scope.launch {
+            while (isActive) {
+                delay(STATUS_INTERVAL_MS)
+                pollStatus()
+            }
+        }
+        statsJob = scope.launch {
+            while (isActive) {
+                delay(STATS_INTERVAL_MS)
+                pollStats()
+            }
+        }
+    }
+
+    private fun stopPollers() {
+        statusJob?.cancel()
+        statsJob?.cancel()
+        statusJob = null
+        statsJob = null
+    }
+
+    private suspend fun pollStatus() {
+        val st = _state.value
+        if (!st.adminEnabled || st.phase != Phase.RUNNING) return
+        val client = adminClient ?: return
+        runCatching { client.status() }
+            .onSuccess { snapshot ->
+                _status.value = snapshot
+                _adminReachable.value = true
+            }
+            .onFailure { _adminReachable.value = false }
+    }
+
+    private suspend fun pollStats() {
+        val st = _state.value
+        if (st.phase != Phase.RUNNING) return
+        val pid = st.pid ?: return
+        val stats = statsReader.read(pid)
+        if (stats != null) {
+            _stats.value = stats
+            _cpuPercent.value = cpuTracker.sample(stats)
+        } else {
+            // pid 可能已失效（进程重启过），重新扫描一次
+            val found = findChildPid()
+            if (found != null && found != pid) {
+                _state.update { it.copy(pid = found) }
+                cpuTracker.reset()
+            }
+        }
+    }
+
+    /**
+     * 查找 frpc 子进程 PID。
+     * Android 13 以下没有公开的 Process.pid() 子进程查询 API，扫描 /proc：
+     * comm == "frpc" 且 ppid == 本进程。
+     */
+    private fun findChildPid(): Int? {
+        val myPid = android.os.Process.myPid()
+        return runCatching {
+            File("/proc").listFiles()
+                ?.mapNotNull { dir ->
+                    val pid = dir.name.toIntOrNull() ?: return@mapNotNull null
+                    val statFile = File(dir, "stat")
+                    if (!statFile.exists()) return@mapNotNull null
+                    val text = runCatching { statFile.readText() }.getOrNull() ?: return@mapNotNull null
+                    val comm = text.substringAfter('(').substringBefore(')')
+                    val tail = text.substringAfterLast(')').trim().split(' ')
+                    val ppid = tail.getOrNull(1)?.toIntOrNull()
+                    if (comm == "frpc" && ppid == myPid) pid else null
+                }
+                ?.firstOrNull()
+        }.getOrNull()
+    }
+
+    private fun writeToml(profile: ServerProfile): File {
+        val dir = File(appContext.filesDir, "run").apply { mkdirs() }
+        val file = File(dir, "frpc.toml")
+        file.writeText(FrpcToml.encode(profile.config))
+        return file
+    }
+
+    private fun appendSystemLog(level: LogLevel, message: String) {
+        appendLog(LogLine(System.currentTimeMillis(), level, "app", message))
+    }
+
+    private fun appendLog(line: LogLine) {
+        synchronized(logBuffer) {
+            logBuffer.addLast(line)
+            while (logBuffer.size > maxLogs) logBuffer.removeFirst()
+            _logs.value = logBuffer.toList()
+        }
+    }
+}

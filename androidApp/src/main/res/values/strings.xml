@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Frpc 客户端</string>
+
+    <!-- 导航 / 通用 -->
+    <string name="nav_home">主页</string>
+    <string name="nav_configs">配置</string>
+    <string name="nav_logs">日志</string>
+    <string name="nav_monitor">监控</string>
+    <string name="nav_settings">设置</string>
+    <string name="action_save">保存</string>
+    <string name="action_cancel">取消</string>
+    <string name="action_delete">删除</string>
+    <string name="action_start">启动</string>
+    <string name="action_stop">停止</string>
+    <string name="action_reload">重载配置</string>
+    <string name="action_add">添加</string>
+    <string name="action_edit">编辑</string>
+    <string name="action_copy">复制</string>
+    <string name="action_export">导出</string>
+    <string name="action_import">导入</string>
+    <string name="action_share">分享</string>
+    <string name="action_confirm">确定</string>
+    <string name="action_retry">重试</string>
+
+    <!-- 主页 -->
+    <string name="home_no_config">还没有配置，先去创建一个服务器配置吧</string>
+    <string name="home_current_config">当前配置</string>
+    <string name="home_status">运行状态</string>
+    <string name="home_pid">进程 PID</string>
+    <string name="home_uptime">运行时长</string>
+    <string name="home_cpu">CPU</string>
+    <string name="home_memory">内存</string>
+    <string name="home_online_proxies">在线代理</string>
+    <string name="home_proxies">代理规则</string>
+    <string name="home_admin_off">未启用 Admin API，状态与监控不可用（可在配置中开启）</string>
+    <string name="home_admin_unreachable">Admin API 无响应，frpc 可能未完全启动</string>
+    <string name="home_quick_stats">概览</string>
+
+    <!-- 运行状态 -->
+    <string name="phase_idle">未启动</string>
+    <string name="phase_starting">启动中…</string>
+    <string name="phase_running">运行中</string>
+    <string name="phase_stopping">停止中…</string>
+    <string name="phase_error">异常</string>
+
+    <!-- 配置管理 -->
+    <string name="config_list_title">服务器配置</string>
+    <string name="config_new">新建配置</string>
+    <string name="config_edit">编辑配置</string>
+    <string name="config_name">配置名称</string>
+    <string name="config_default">默认</string>
+    <string name="config_set_default">设为默认</string>
+    <string name="config_duplicate">创建副本</string>
+    <string name="config_delete_confirm">确定删除配置「%1$s」？此操作不可恢复。</string>
+    <string name="config_delete_title">删除配置</string>
+    <string name="config_saved">配置已保存</string>
+    <string name="config_export_title">导出 frpc.toml</string>
+    <string name="config_import_title">导入 frpc.toml</string>
+    <string name="config_import_failed">导入失败：%1$s</string>
+    <string name="config_imported">已导入配置「%1$s」</string>
+    <string name="config_empty_name">配置名称不能为空</string>
+
+    <!-- 服务器字段 -->
+    <string name="field_server_addr">服务器地址</string>
+    <string name="field_server_port">服务器端口</string>
+    <string name="field_user">用户名前缀</string>
+    <string name="field_client_id">客户端 ID</string>
+    <string name="field_login_fail_exit">首次登录失败即退出</string>
+    <string name="field_auth_method">认证方式</string>
+    <string name="field_auth_token">认证 Token</string>
+    <string name="field_admin_enabled">启用 Admin API（状态监控）</string>
+    <string name="field_admin_addr">监听地址</string>
+    <string name="field_admin_port">监听端口</string>
+    <string name="field_admin_user">用户名</string>
+    <string name="field_admin_password">密码</string>
+    <string name="field_transport_protocol">连接协议</string>
+    <string name="field_tcp_mux">TCP 多路复用</string>
+    <string name="field_pool_count">预连接数</string>
+    <string name="field_tls_enable">启用 TLS</string>
+    <string name="field_tls_server_name">TLS 服务器名</string>
+    <string name="field_proxy_url">代理服务器 URL</string>
+    <string name="field_log_level">日志级别</string>
+    <string name="field_udp_packet_size">UDP 包大小</string>
+
+    <!-- 代理字段 -->
+    <string name="proxies_title">代理规则</string>
+    <string name="proxies_empty">暂无代理规则，点击右下角添加</string>
+    <string name="proxy_new">新建代理</string>
+    <string name="proxy_edit">编辑代理</string>
+    <string name="field_proxy_name">代理名称</string>
+    <string name="field_proxy_type">代理类型</string>
+    <string name="field_proxy_enabled">启用该代理</string>
+    <string name="field_local_ip">本地 IP</string>
+    <string name="field_local_port">本地端口</string>
+    <string name="field_remote_port">远程端口（0 = 随机）</string>
+    <string name="field_subdomain">子域名</string>
+    <string name="field_custom_domains">自定义域名（逗号分隔）</string>
+    <string name="field_locations">路由路径（逗号分隔）</string>
+    <string name="field_http_user">HTTP 用户名</string>
+    <string name="field_http_password">HTTP 密码</string>
+    <string name="field_host_header_rewrite">Host 头重写</string>
+    <string name="field_multiplexer">复用器</string>
+    <string name="field_secret_key">密钥</string>
+    <string name="field_allow_users">允许的用户（逗号分隔，* = 全部）</string>
+    <string name="field_bandwidth_limit">带宽限制（如 1MB）</string>
+    <string name="field_use_encryption">加密</string>
+    <string name="field_use_compression">压缩</string>
+    <string name="field_proxy_protocol">Proxy Protocol 版本</string>
+    <string name="proxy_type_tcp">TCP</string>
+    <string name="proxy_type_udp">UDP</string>
+    <string name="proxy_type_http">HTTP</string>
+    <string name="proxy_type_https">HTTPS</string>
+    <string name="proxy_type_stcp">STCP（私密 TCP）</string>
+    <string name="proxy_type_sudp">SUDP（私密 UDP）</string>
+    <string name="proxy_type_xtcp">XTCP（P2P）</string>
+    <string name="proxy_type_tcpmux">TCPMUX（httpconnect）</string>
+
+    <!-- 访问者 -->
+    <string name="visitors_title">访问者</string>
+    <string name="visitors_empty">暂无访问者规则</string>
+    <string name="visitor_new">新建访问者</string>
+    <string name="visitor_edit">编辑访问者</string>
+    <string name="field_visitor_name">访问者名称</string>
+    <string name="field_visitor_type">类型</string>
+    <string name="field_server_name">目标服务端代理名</string>
+    <string name="field_bind_addr">绑定地址</string>
+    <string name="field_bind_port">绑定端口</string>
+    <string name="field_keep_tunnel_open">保持隧道打开</string>
+
+    <!-- 校验 -->
+    <string name="validation_title">配置校验未通过</string>
+    <string name="reason_empty_required_field">%1$s 不能为空</string>
+    <string name="reason_port_out_of_range">%1$s 端口必须在 1-65535 之间</string>
+    <string name="reason_port_in_use">%1$s 端口已被占用</string>
+    <string name="reason_invalid_value">%1$s 取值不合法</string>
+    <string name="reason_duplicate_name">名称「%1$s」重复</string>
+    <string name="reason_domain_or_subdomain_required">%1$s 需要填写子域名或自定义域名</string>
+    <string name="reason_unsupported_value">%1$s 暂不支持，请在 frpc.toml 中手动配置</string>
+    <string name="reason_type_field_missing">%1$s 缺少必需字段</string>
+    <string name="validation_ok">配置校验通过</string>
+
+    <!-- 日志 -->
+    <string name="log_empty">暂无日志</string>
+    <string name="log_filter_all">全部</string>
+    <string name="log_filter_info">信息</string>
+    <string name="log_filter_warn">警告</string>
+    <string name="log_filter_error">错误</string>
+    <string name="log_filter_debug">调试</string>
+    <string name="log_autoscroll">自动滚动</string>
+    <string name="log_clear">清空</string>
+    <string name="log_lines">共 %1$d 行</string>
+
+    <!-- 监控 -->
+    <string name="monitor_title">运行监控</string>
+    <string name="monitor_not_running">frpc 未在运行</string>
+    <string name="monitor_process">进程信息</string>
+    <string name="monitor_threads">线程数</string>
+    <string name="monitor_state">进程状态</string>
+    <string name="monitor_cpu_usage">CPU 占用率</string>
+    <string name="monitor_mem_usage">内存占用</string>
+    <string name="monitor_proxy_status">代理状态</string>
+
+    <!-- 设置 -->
+    <string name="settings_theme">主题</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_dark">深色</string>
+    <string name="settings_startup">开机自启</string>
+    <string name="settings_startup_summary">开机后自动启动默认配置的 frpc</string>
+    <string name="settings_default_config">默认配置</string>
+    <string name="settings_battery">忽略电池优化</string>
+    <string name="settings_battery_summary">避免系统在后台冻结 frpc 进程</string>
+    <string name="settings_battery_ok">已加入电池优化白名单</string>
+    <string name="settings_battery_request">去设置</string>
+    <string name="settings_notification">通知权限</string>
+    <string name="settings_notification_granted">已授予</string>
+    <string name="settings_notification_request">去授权</string>
+    <string name="settings_binary">frpc 引擎</string>
+    <string name="settings_binary_version">版本 %1$s（%2$s）</string>
+    <string name="settings_binary_reinstall">重新安装引擎</string>
+    <string name="settings_binary_reinstalled">引擎已重新安装</string>
+    <string name="settings_about">关于</string>
+    <string name="settings_about_version">版本 %1$s</string>
+    <string name="settings_about_desc">基于 Kotlin Multiplatform + Jetpack Compose 的 frpc 安卓客户端，逻辑层跨 Android/JVM 双端。</string>
+
+    <!-- 服务通知 -->
+    <string name="notification_channel_status">运行状态</string>
+    <string name="notification_channel_events">事件提醒</string>
+    <string name="notification_starting">frpc 启动中…</string>
+    <string name="notification_running">%1$s · 在线 %2$d/%3$d</string>
+    <string name="notification_stopped">frpc 已停止</string>
+    <string name="notification_error">frpc 异常退出：%1$s</string>
+    <string name="notification_crashed">frpc 进程退出，正在重启…</string>
+    <string name="notification_boot_failed">开机自启失败，请手动打开应用启动</string>
+
+    <!-- 其他 -->
+    <string name="error_start_failed">启动失败：%1$s</string>
+    <string name="error_binary_missing">未找到适用于当前设备（%1$s）的 frpc 二进制</string>
+    <string name="error_no_config">没有选择配置</string>
+    <string name="copied_to_clipboard">已复制到剪贴板</string>
+    <string name="unknown">未知</string>
+</resources>

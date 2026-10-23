@@ -1,0 +1,55 @@
+package com.frpc.android.data
+
+import android.content.Context
+import android.content.SharedPreferences
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
+/** 主题模式 */
+object ThemeMode {
+    const val SYSTEM = "system"
+    const val LIGHT = "light"
+    const val DARK = "dark"
+}
+
+/**
+ * 应用设置（SharedPreferences + StateFlow 双通道，轻量零依赖）。
+ */
+class SettingsRepository(context: Context) {
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("frpc_settings", Context.MODE_PRIVATE)
+
+    private val _themeMode = MutableStateFlow(prefs.getString(KEY_THEME, ThemeMode.SYSTEM) ?: ThemeMode.SYSTEM)
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    private val _autoStartOnBoot = MutableStateFlow(prefs.getBoolean(KEY_AUTO_START, false))
+    val autoStartOnBoot: StateFlow<Boolean> = _autoStartOnBoot.asStateFlow()
+
+    private val _defaultProfileId = MutableStateFlow(prefs.getString(KEY_DEFAULT_PROFILE, null))
+    val defaultProfileId: StateFlow<String?> = _defaultProfileId.asStateFlow()
+
+    fun setThemeMode(mode: String) {
+        prefs.edit().putString(KEY_THEME, mode).apply()
+        _themeMode.value = mode
+    }
+
+    fun setAutoStartOnBoot(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AUTO_START, enabled).apply()
+        _autoStartOnBoot.value = enabled
+    }
+
+    fun setDefaultProfileId(id: String?) {
+        prefs.edit().apply {
+            if (id == null) remove(KEY_DEFAULT_PROFILE) else putString(KEY_DEFAULT_PROFILE, id)
+        }.apply()
+        _defaultProfileId.value = id
+    }
+
+    private companion object {
+        const val KEY_THEME = "theme_mode"
+        const val KEY_AUTO_START = "auto_start_on_boot"
+        const val KEY_DEFAULT_PROFILE = "default_profile_id"
+    }
+}
