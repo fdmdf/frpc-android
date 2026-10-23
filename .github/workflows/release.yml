@@ -182,7 +182,7 @@ jobs:
           echo "APK_PATH=$OUT" >> "$GITHUB_ENV"
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.detect.outputs.tag }}
           name: ${{ needs.detect.outputs.is_tag_push == 'true' && format('v{0}', needs.detect.outputs.app_version) || format('frp {0} 引擎更新', needs.detect.outputs.frp_version) }}
