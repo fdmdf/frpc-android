@@ -11,6 +11,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -18,6 +19,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -29,7 +33,14 @@ import com.frpc.android.ui.components.LabeledTextField
 import com.frpc.android.ui.components.NumberField
 import com.frpc.android.ui.components.SectionCard
 import com.frpc.android.ui.components.SwitchRow
+import com.frpc.android.ui.components.formFieldKey
+import com.frpc.android.ui.components.validationMessage
 import com.frpc.android.ui.nav.AppNavigator
+import com.frpc.shared.model.AuthConfig
+import com.frpc.shared.model.FrpcConfig
+import com.frpc.shared.validate.ConfigValidator
+import com.frpc.shared.validate.Severity
+import com.frpc.shared.validate.ValidationIssue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,14 +52,17 @@ fun VisitorEditScreen(
 ) {
     val store = container.configEditorStore
     val visitor by store.visitorDraft.collectAsStateWithLifecycle()
-    val draft by store.draft.collectAsStateWithLifecycle()
+    var issues by remember { mutableStateOf<List<ValidationIssue>>(emptyList()) }
 
+    // 防重入：旋转/重绘时若草稿已属于该下标则跳过初始化（避免丢失未保存输入）
     LaunchedEffect(visitorIndex) {
-        val existing = draft?.config?.visitors?.getOrNull(visitorIndex)
-        store.beginVisitorEdit(existing)
+        if (store.hasVisitorDraft(visitorIndex)) return@LaunchedEffect
+        val existing = store.draft.value?.config?.visitors?.getOrNull(visitorIndex)
+        store.beginVisitorEdit(visitorIndex, existing)
     }
 
     val current = visitor ?: return
+    val errorFields = remember(issues) { issues.map { it.formFieldKey() }.toSet() }
 
     Scaffold(
         topBar = {
@@ -61,8 +75,21 @@ fun VisitorEditScreen(
                 },
                 actions = {
                     TextButton(onClick = {
-                        store.commitVisitor(visitorIndex, current)
-                        navigator.pop()
+                        // 复用 shared 层校验器（单访问者临时配置），必填项不满足则阻止保存
+                        val visitorIssues = ConfigValidator.validate(
+                            FrpcConfig(
+                                serverAddr = "validation",
+                                auth = AuthConfig(token = "validation"),
+                                visitors = listOf(current),
+                            ),
+                        ).filter { it.field.startsWith("visitors[") }
+                        val blocking = visitorIssues.filter { it.severity == Severity.ERROR }
+                        if (blocking.isNotEmpty()) {
+                            issues = blocking
+                        } else {
+                            store.commitVisitor(visitorIndex, current)
+                            navigator.pop()
+                        }
                     }) {
                         Text(stringResource(R.string.action_save))
                     }
@@ -78,14 +105,27 @@ fun VisitorEditScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (issues.isNotEmpty()) {
+                SectionCard(title = stringResource(R.string.validation_title)) {
+                    issues.forEach { issue ->
+                        Text(
+                            text = "• " + validationMessage(issue),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+            }
+
             SectionCard {
                 LabeledTextField(
                     value = current.name,
                     onValueChange = { v -> store.updateVisitor { it.copy(name = v) } },
-                    label = stringResource(R.string.field_visitor_name),
+                    label = stringResource(R.string.field_visitor_name) + " *",
+                    isError = "name" in errorFields,
                 )
                 DropdownField(
-                    label = stringResource(R.string.field_visitor_type),
+                    label = stringResource(R.string.field_visitor_type) + " *",
                     selected = current.type,
                     options = listOf("stcp", "xtcp"),
                     optionLabel = { it.uppercase() },
@@ -94,7 +134,8 @@ fun VisitorEditScreen(
                 LabeledTextField(
                     value = current.serverName,
                     onValueChange = { v -> store.updateVisitor { it.copy(serverName = v) } },
-                    label = stringResource(R.string.field_server_name),
+                    label = stringResource(R.string.field_server_name) + " *",
+                    isError = "serverName" in errorFields,
                 )
                 LabeledTextField(
                     value = current.secretKey.orEmpty(),
@@ -108,15 +149,17 @@ fun VisitorEditScreen(
                 LabeledTextField(
                     value = current.bindAddr,
                     onValueChange = { v -> store.updateVisitor { it.copy(bindAddr = v) } },
-                    label = stringResource(R.string.field_bind_addr),
+                    label = stringResource(R.string.field_bind_addr) + " *",
+                    isError = "bindAddr" in errorFields,
                 )
                 NumberField(
                     value = current.bindPort.toString(),
                     onValueChange = { v ->
                         store.updateVisitor { it.copy(bindPort = v.toIntOrNull() ?: 0) }
                     },
-                    label = stringResource(R.string.field_bind_port),
+                    label = stringResource(R.string.field_bind_port) + " *",
                     supportingText = "0 = 不监听，仅接收转发",
+                    isError = "bindPort" in errorFields,
                 )
                 LabeledTextField(
                     value = current.serverUser.orEmpty(),

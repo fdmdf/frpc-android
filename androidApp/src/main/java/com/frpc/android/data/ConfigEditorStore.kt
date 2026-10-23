@@ -13,6 +13,10 @@ import java.util.UUID
 /**
  * 配置编辑器草稿（Activity 级单例，跨旋转保存未保存的编辑）。
  * 同一时刻只有一个编辑流程，避免无 Navigation-Compose 时的 ViewModel key 管理复杂度。
+ *
+ * 防重入守卫：编辑屏幕从子页（代理/访问者编辑）返回时会重新进入组合，
+ * 若此时重新 beginNew/beginEdit 会把整个草稿清空（历史上的丢数据 bug）。
+ * hasDraft / hasProxyDraft / hasVisitorDraft 供屏幕判断"草稿是否已属于当前编辑目标"。
  */
 class ConfigEditorStore {
 
@@ -35,6 +39,12 @@ class ConfigEditorStore {
     private val _visitorDraft = MutableStateFlow<VisitorConfig?>(null)
     val visitorDraft: StateFlow<VisitorConfig?> = _visitorDraft.asStateFlow()
 
+    /** 代理草稿对应的列表下标（null 表示无草稿），用于防止编辑 B 时显示 A 的草稿 */
+    private var proxyDraftIndex: Int? = null
+
+    /** 访问者草稿对应的列表下标 */
+    private var visitorDraftIndex: Int? = null
+
     // ------------------------------------------------------------ 服务器配置
 
     fun beginNew() {
@@ -50,6 +60,10 @@ class ConfigEditorStore {
             lastUsedAt = profile.lastUsedAt,
         )
     }
+
+    /** 草稿是否已属于目标配置（屏幕重入时据此跳过重复初始化） */
+    fun hasDraft(profileId: String?): Boolean =
+        _draft.value != null && _draft.value?.profileId == profileId
 
     fun rename(name: String) {
         _draft.value = _draft.value?.copy(name = name)
@@ -84,9 +98,14 @@ class ConfigEditorStore {
 
     // ------------------------------------------------------------ 代理草稿
 
-    fun beginProxyEdit(proxy: ProxyConfig?) {
-        _proxyDraft.value = proxy ?: ProxyConfig(name = "", type = "tcp")
+    fun beginProxyEdit(index: Int, proxy: ProxyConfig?) {
+        proxyDraftIndex = index
+        _proxyDraft.value = proxy ?: ProxyConfig(name = "", type = "tcp", localIP = "127.0.0.1")
     }
+
+    /** 下标 index 的代理草稿是否已存在（屏幕重入/旋转时跳过重复初始化） */
+    fun hasProxyDraft(index: Int): Boolean =
+        proxyDraftIndex == index && _proxyDraft.value != null
 
     fun updateProxy(transform: (ProxyConfig) -> ProxyConfig) {
         _proxyDraft.value = _proxyDraft.value?.let { transform(it) }
@@ -94,6 +113,7 @@ class ConfigEditorStore {
 
     fun clearProxy() {
         _proxyDraft.value = null
+        proxyDraftIndex = null
     }
 
     /** 保存代理到配置草稿：index 处替换，越界则追加 */
@@ -108,9 +128,14 @@ class ConfigEditorStore {
 
     // ------------------------------------------------------------ 访问者草稿
 
-    fun beginVisitorEdit(visitor: VisitorConfig?) {
+    fun beginVisitorEdit(index: Int, visitor: VisitorConfig?) {
+        visitorDraftIndex = index
         _visitorDraft.value = visitor ?: VisitorConfig(name = "", type = "stcp", serverName = "")
     }
+
+    /** 下标 index 的访问者草稿是否已存在 */
+    fun hasVisitorDraft(index: Int): Boolean =
+        visitorDraftIndex == index && _visitorDraft.value != null
 
     fun updateVisitor(transform: (VisitorConfig) -> VisitorConfig) {
         _visitorDraft.value = _visitorDraft.value?.let { transform(it) }
@@ -118,6 +143,7 @@ class ConfigEditorStore {
 
     fun clearVisitor() {
         _visitorDraft.value = null
+        visitorDraftIndex = null
     }
 
     fun commitVisitor(index: Int, visitor: VisitorConfig) {

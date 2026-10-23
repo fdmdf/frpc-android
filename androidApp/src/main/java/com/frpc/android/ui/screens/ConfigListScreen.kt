@@ -103,7 +103,10 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
                 ProfileCard(
                     profile = profile,
                     isDefault = profile.id == defaultId,
-                    onEdit = { navigator.push(Screen.ServerEdit(profile.id)) },
+                    onEdit = {
+                        container.configEditorStore.beginEdit(profile)
+                        navigator.push(Screen.ServerEdit(profile.id))
+                    },
                     onDuplicate = { scope.launch { container.configRepository.duplicate(profile.id) } },
                     onExport = { shareToml(context, container.configRepository.tomlOf(profile)) },
                     onSetDefault = {
@@ -116,6 +119,7 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
 
         ExtendedFloatingActionButton(
             onClick = {
+                // 导航前预初始化草稿：编辑页据此跳过重复初始化（防返回时清空）
                 container.configEditorStore.beginNew()
                 navigator.push(Screen.ServerEdit(null))
             },

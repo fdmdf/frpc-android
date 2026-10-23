@@ -1,5 +1,7 @@
 package com.frpc.android.ui.components
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import com.frpc.android.R
 import com.frpc.shared.validate.Reason
 import com.frpc.shared.validate.Scope
@@ -60,3 +62,14 @@ fun ValidationIssue.scopePrefixRes(): Int = when (scope) {
     Scope.PROXY -> R.string.proxies_title
     Scope.VISITOR -> R.string.visitors_title
 }
+
+/** 校验问题 → 本地化文案 */
+@Composable
+fun validationMessage(issue: ValidationIssue): String {
+    val fieldLabel = stringResource(fieldLabelRes(issue.field))
+    return stringResource(reasonTemplateRes(issue.reason), fieldLabel)
+}
+
+/** 从 "proxies[0].remotePort" 这类路径中取出表单字段键（"remotePort"） */
+fun ValidationIssue.formFieldKey(): String =
+    field.substringAfter("].", field)

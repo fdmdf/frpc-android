@@ -42,8 +42,7 @@ import com.frpc.android.ui.components.LabeledTextField
 import com.frpc.android.ui.components.NumberField
 import com.frpc.android.ui.components.SectionCard
 import com.frpc.android.ui.components.SwitchRow
-import com.frpc.android.ui.components.fieldLabelRes
-import com.frpc.android.ui.components.reasonTemplateRes
+import com.frpc.android.ui.components.validationMessage
 import com.frpc.android.ui.nav.AppNavigator
 import com.frpc.android.ui.nav.Screen
 import com.frpc.android.util.isPortInUse
@@ -67,7 +66,10 @@ fun ConfigEditScreen(
     val draft by store.draft.collectAsStateWithLifecycle()
     var showValidation by remember { mutableStateOf<List<ValidationIssue>?>(null) }
 
+    // 防重入：从代理/访问者编辑页返回时本屏幕会重新进入组合，
+    // 若草稿已属于当前配置则跳过初始化，否则整个草稿（含已添加的代理）会被清空
     LaunchedEffect(profileId) {
+        if (store.hasDraft(profileId)) return@LaunchedEffect
         if (profileId == null) {
             store.beginNew()
         } else {
@@ -383,12 +385,6 @@ fun ConfigEditScreen(
             },
         )
     }
-}
-
-@Composable
-private fun validationMessage(issue: ValidationIssue): String {
-    val fieldLabel = stringResource(fieldLabelRes(issue.field))
-    return stringResource(reasonTemplateRes(issue.reason), fieldLabel)
 }
 
 /** 代理列表行 */
