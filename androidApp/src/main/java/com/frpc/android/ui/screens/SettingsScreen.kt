@@ -41,6 +41,7 @@ fun SettingsScreen(container: AppContainer) {
     val themeMode by container.settingsRepository.themeMode.collectAsStateWithLifecycle()
     val autoStart by container.settingsRepository.autoStartOnBoot.collectAsStateWithLifecycle()
     val defaultProfileId by container.settingsRepository.defaultProfileId.collectAsStateWithLifecycle()
+    val showAccessLogs by container.settingsRepository.showAccessLogs.collectAsStateWithLifecycle()
     val profiles by container.configRepository.profiles.collectAsStateWithLifecycle()
     val state by FrpcSupervisor.state.collectAsStateWithLifecycle()
 
@@ -108,6 +109,15 @@ fun SettingsScreen(container: AppContainer) {
                     Text(stringResource(R.string.settings_battery_request))
                 }
             }
+        }
+
+        SectionCard(title = stringResource(R.string.nav_logs)) {
+            SwitchRow(
+                label = stringResource(R.string.settings_show_access_logs),
+                checked = showAccessLogs,
+                onCheckedChange = { container.settingsRepository.setShowAccessLogs(it) },
+                supportingText = stringResource(R.string.settings_show_access_logs_summary),
+            )
         }
 
         SectionCard(title = stringResource(R.string.settings_binary)) {

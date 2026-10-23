@@ -99,6 +99,14 @@ object FrpcLogParser {
         return LogLine(nowFallbackMs, LogLevel.INFO, "", cleaned)
     }
 
+    /**
+     * 状态接口的访问日志。frpc 的 NewRequestLogger 固定以 Info 级别打印
+     * `http request: [GET /api/status]` / `http response [200 OK]`，没有关闭开关，
+     * 而 App 每 4 秒轮询一次状态接口，默认在界面上隐藏这两行以免刷屏。
+     */
+    fun isAccessLog(message: String): Boolean =
+        message.startsWith("http request: [") || message.startsWith("http response [")
+
     private fun levelOf(c: String): LogLevel = when (c) {
         "T" -> LogLevel.TRACE
         "D" -> LogLevel.DEBUG

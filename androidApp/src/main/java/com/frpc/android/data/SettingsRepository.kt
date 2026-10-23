@@ -30,6 +30,18 @@ class SettingsRepository(context: Context) {
     private val _defaultProfileId = MutableStateFlow(prefs.getString(KEY_DEFAULT_PROFILE, null))
     val defaultProfileId: StateFlow<String?> = _defaultProfileId.asStateFlow()
 
+    /**
+     * 是否在日志中显示状态接口的访问记录（frpc 每 4 秒被轮询一次会刷屏）。
+     * 默认关闭；排查状态接口问题时可打开。
+     */
+    private val _showAccessLogs = MutableStateFlow(prefs.getBoolean(KEY_SHOW_ACCESS_LOGS, false))
+    val showAccessLogs: StateFlow<Boolean> = _showAccessLogs.asStateFlow()
+
+    fun setShowAccessLogs(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_ACCESS_LOGS, enabled).apply()
+        _showAccessLogs.value = enabled
+    }
+
     fun setThemeMode(mode: String) {
         prefs.edit().putString(KEY_THEME, mode).apply()
         _themeMode.value = mode
@@ -51,5 +63,6 @@ class SettingsRepository(context: Context) {
         const val KEY_THEME = "theme_mode"
         const val KEY_AUTO_START = "auto_start_on_boot"
         const val KEY_DEFAULT_PROFILE = "default_profile_id"
+        const val KEY_SHOW_ACCESS_LOGS = "show_access_logs"
     }
 }

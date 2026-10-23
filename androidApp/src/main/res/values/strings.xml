@@ -68,6 +68,12 @@
     <string name="config_delete_title">删除配置</string>
     <string name="config_saved">配置已保存</string>
     <string name="config_export_title">导出 frpc.toml</string>
+    <string name="config_export_save_file">保存到文件（.toml）</string>
+    <string name="config_export_share">分享</string>
+    <string name="config_export_copy">复制到剪贴板</string>
+    <string name="config_saved_to_file">已保存：%1$s</string>
+    <string name="config_export_failed">导出失败：%1$s</string>
+    <string name="config_import_hint">从 frpc.toml 导入配置</string>
     <string name="config_import_title">导入 frpc.toml</string>
     <string name="config_import_failed">导入失败：%1$s</string>
     <string name="config_imported">已导入配置「%1$s」</string>
@@ -201,6 +207,8 @@ wss 需服务端前置 TLS 反代；http/https/tcpmux 需 frps 配置 vhost 端�
     <string name="settings_binary_path">引擎路径：%1$s（%2$s）</string>
     <string name="settings_binary_note">引擎以 libfrpc.so 形式随应用分发（安装时解压到系统目录执行，规避 Android 10+ 数据目录执行限制），升级应用即可更新引擎。32 位（armeabi-v7a）设备不受支持。</string>
     <string name="settings_about">关于</string>
+    <string name="settings_show_access_logs">显示状态接口访问日志</string>
+    <string name="settings_show_access_logs_summary">frpc 每 4 秒被轮询一次会产生两条日志，默认隐藏；排查状态接口时再打开</string>
     <string name="settings_about_version">版本 %1$s</string>
     <string name="settings_about_desc">基于 Kotlin Multiplatform + Jetpack Compose 的 frpc 安卓客户端，逻辑层跨 Android/JVM 双端。</string>
 

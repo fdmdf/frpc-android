@@ -41,10 +41,10 @@ This project brings the desktop-style workflow (see [frpc-desktop](https://githu
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/home.jpg" width="240" /><br><sub>Status &amp; proxies</sub></td>
-    <td align="center"><img src="docs/screenshots/config-edit.jpg" width="240" /><br><sub>Config editor</sub></td>
-    <td align="center"><img src="docs/screenshots/logs.jpg" width="240" /><br><sub>Live logs</sub></td>
-    <td align="center"><img src="docs/screenshots/settings.jpg" width="240" /><br><sub>Engine &amp; settings</sub></td>
+    <td align="center"><img src="docs/screenshots/home.svg" width="240" /><br><sub>Status &amp; proxies</sub></td>
+    <td align="center"><img src="docs/screenshots/config-edit.svg" width="240" /><br><sub>Config editor</sub></td>
+    <td align="center"><img src="docs/screenshots/logs.svg" width="240" /><br><sub>Live logs</sub></td>
+    <td align="center"><img src="docs/screenshots/settings.svg" width="240" /><br><sub>Engine &amp; settings</sub></td>
   </tr>
 </table>
 

@@ -64,10 +64,10 @@
 
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/home.jpg" width="240" /><br><sub>运行状态与代理</sub></td>
-    <td align="center"><img src="docs/screenshots/config-edit.jpg" width="240" /><br><sub>可视化配置</sub></td>
-    <td align="center"><img src="docs/screenshots/logs.jpg" width="240" /><br><sub>实时日志</sub></td>
-    <td align="center"><img src="docs/screenshots/settings.jpg" width="240" /><br><sub>引擎与设置</sub></td>
+    <td align="center"><img src="docs/screenshots/home.svg" width="240" /><br><sub>运行状态与代理</sub></td>
+    <td align="center"><img src="docs/screenshots/config-edit.svg" width="240" /><br><sub>可视化配置</sub></td>
+    <td align="center"><img src="docs/screenshots/logs.svg" width="240" /><br><sub>实时日志</sub></td>
+    <td align="center"><img src="docs/screenshots/settings.svg" width="240" /><br><sub>引擎与设置</sub></td>
   </tr>
 </table>
 

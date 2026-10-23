@@ -186,7 +186,7 @@ object FrpcSupervisor {
             }
             runCatching { configRepository.markUsed(profile.id) }
 
-            if (adminEnabled && webServer != null) {
+            if (webServer != null && webServer.port > 0) {
                 adminClient = FrpcAdminClient(
                     addr = webServer.addr,
                     port = webServer.port,
@@ -361,6 +361,8 @@ object FrpcSupervisor {
     }
 
     private fun appendLog(line: LogLine) {
+        // 状态接口被 App 每 4 秒轮询一次，frpc 会打两条访问日志，默认过滤以免刷屏
+        if (!showAccessLogs() && FrpcLogParser.isAccessLog(line.message)) return
         updateProxyStateFromLog(line)
         synchronized(logBuffer) {
             logBuffer.addLast(line)
@@ -368,6 +370,9 @@ object FrpcSupervisor {
             _logs.value = logBuffer.toList()
         }
     }
+
+    private fun showAccessLogs(): Boolean =
+        runCatching { appContext.container.settingsRepository.showAccessLogs.value }.getOrDefault(false)
 
     /**
      * 从 frpc 日志推断代理状态（Admin API 关闭/不可用时的兜底），

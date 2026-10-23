@@ -1,5 +1,8 @@
 package com.frpc.android.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -8,10 +11,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -25,6 +30,7 @@ import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,8 +52,9 @@ import com.frpc.android.ui.components.SectionCard
 import com.frpc.android.ui.components.StatusChip
 import com.frpc.android.ui.nav.AppNavigator
 import com.frpc.android.ui.nav.Screen
-import com.frpc.android.ui.theme.StatusIdle
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
@@ -56,29 +63,56 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
     val profiles by container.configRepository.profiles.collectAsStateWithLifecycle()
     val defaultId by container.settingsRepository.defaultProfileId.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<ServerProfile?>(null) }
+    var exportTarget by remember { mutableStateOf<ServerProfile?>(null) }
     var importError by remember { mutableStateOf<String?>(null) }
+    var pendingSave by remember { mutableStateOf<Pair<String, String>?>(null) }
 
+    // 导入：用 */* 才能选中 .toml / .conf 这类系统未登记 mime 的文件
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? ->
-        if (uri != null) {
-            scope.launch {
-                runCatching {
+        if (uri == null) return@rememberLauncherForActivityResult
+        val fileName = uri.lastPathSegment
+            ?.substringAfterLast('/')
+            ?.substringBeforeLast('.')
+            ?.ifBlank { null }
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
                     context.contentResolver.openInputStream(uri)
                         ?.bufferedReader()
                         ?.use { it.readText() }
-                        ?: error("cannot open file")
-                }.onSuccess { text ->
-                    val profile = container.configRepository.importToml("导入配置", text)
-                    container.configRepository.upsert(profile)
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.config_imported, profile.name),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }.onFailure { e ->
-                    importError = e.message ?: "unknown"
+                        ?: error("无法读取文件")
                 }
+            }.onSuccess { text ->
+                runCatching {
+                    container.configRepository.importToml(fileName ?: "导入配置", text)
+                }.onSuccess { profile ->
+                    container.configRepository.upsert(profile)
+                    toast(context, context.getString(R.string.config_imported, profile.name))
+                }.onFailure { e -> importError = e.message ?: e.toString() }
+            }.onFailure { e -> importError = e.message ?: e.toString() }
+        }
+    }
+
+    // 导出到文件：走系统文件选择器，可存到“下载/文档”等任意位置
+    val saveLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri: Uri? ->
+        val payload = pendingSave
+        pendingSave = null
+        if (uri == null || payload == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri)?.use {
+                        it.write(payload.second.toByteArray(Charsets.UTF_8))
+                    } ?: error("无法写入文件")
+                }
+            }.onSuccess {
+                toast(context, context.getString(R.string.config_saved_to_file, payload.first))
+            }.onFailure {
+                toast(context, context.getString(R.string.config_export_failed, it.message ?: ""))
             }
         }
     }
@@ -86,7 +120,8 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp, 16.dp, 16.dp, 88.dp),
+            // 底部留出操作条空间，避免最后一张卡片被遮挡
+            contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 104.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             if (profiles.isEmpty()) {
@@ -96,6 +131,12 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
                             text = stringResource(R.string.home_no_config),
                             style = MaterialTheme.typography.bodyLarge,
                         )
+                        OutlinedButton(
+                            onClick = { importLauncher.launch(arrayOf("*/*")) },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(stringResource(R.string.config_import_hint))
+                        }
                     }
                 }
             }
@@ -108,7 +149,7 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
                         navigator.push(Screen.ServerEdit(profile.id))
                     },
                     onDuplicate = { scope.launch { container.configRepository.duplicate(profile.id) } },
-                    onExport = { shareToml(context, container.configRepository.tomlOf(profile)) },
+                    onExport = { exportTarget = profile },
                     onSetDefault = {
                         scope.launch { container.settingsRepository.setDefaultProfileId(profile.id) }
                     },
@@ -117,17 +158,80 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
             }
         }
 
-        ExtendedFloatingActionButton(
-            onClick = {
-                // 导航前预初始化草稿：编辑页据此跳过重复初始化（防返回时清空）
-                container.configEditorStore.beginNew()
-                navigator.push(Screen.ServerEdit(null))
-            },
+        // 底部操作条：左侧导入（始终可用），右侧新建
+        Row(
             modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-            text = { Text(stringResource(R.string.config_new)) },
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
+                Text(stringResource(R.string.action_import))
+            }
+            ExtendedFloatingActionButton(
+                onClick = {
+                    container.configEditorStore.beginNew()
+                    navigator.push(Screen.ServerEdit(null))
+                },
+                icon = {
+                    Icon(
+                        Icons.Filled.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                    )
+                },
+                text = { Text(stringResource(R.string.config_new), maxLines = 1) },
+            )
+        }
+    }
+
+    // 导出选项：保存到文件 / 分享 / 复制
+    exportTarget?.let { profile ->
+        val toml = container.configRepository.tomlOf(profile)
+        val fileName = "${profile.name.ifBlank { "frpc" }}-frpc.toml"
+        AlertDialog(
+            onDismissRequest = { exportTarget = null },
+            title = { Text(stringResource(R.string.config_export_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(
+                        onClick = {
+                            pendingSave = fileName to toml
+                            exportTarget = null
+                            saveLauncher.launch(fileName)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.config_export_save_file))
+                    }
+                    TextButton(
+                        onClick = {
+                            exportTarget = null
+                            shareToml(context, toml)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.config_export_share))
+                    }
+                    TextButton(
+                        onClick = {
+                            exportTarget = null
+                            copyToClipboard(context, toml)
+                            toast(context, context.getString(R.string.copied_to_clipboard))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(R.string.config_export_copy))
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { exportTarget = null }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
         )
     }
 
@@ -163,20 +267,6 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
                 }
             },
         )
-    }
-
-    // 导入入口放在列表底部按钮行
-    if (profiles.isNotEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            contentAlignment = Alignment.BottomStart,
-        ) {
-            TextButton(onClick = { importLauncher.launch(arrayOf("text/plain", "application/toml")) }) {
-                Text(stringResource(R.string.action_import) + " frpc.toml")
-            }
-        }
     }
 }
 
@@ -246,7 +336,16 @@ private fun ProfileCard(
     }
 }
 
-private fun shareToml(context: android.content.Context, toml: String) {
+private fun toast(context: Context, message: String) {
+    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+}
+
+private fun copyToClipboard(context: Context, text: String) {
+    val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    manager.setPrimaryClip(ClipData.newPlainText("frpc.toml", text))
+}
+
+private fun shareToml(context: Context, toml: String) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
         putExtra(Intent.EXTRA_TEXT, toml)

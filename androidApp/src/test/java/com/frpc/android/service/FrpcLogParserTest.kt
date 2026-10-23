@@ -59,4 +59,21 @@ class FrpcLogParserTest {
         assertEquals("some raw output without format", line.message)
         assertEquals(12345, line.timeMs)
     }
+
+    /** 状态接口轮询日志（frp v0.71.1 pkg/util/http/middleware.go 的真实输出）应被识别并默认隐藏 */
+    @Test
+    fun detectStatusEndpointAccessLog() {
+        val request = FrpcLogParser.parse(
+            "2026-10-23 18:57:44.101 [I] [http/middleware.go:33] http request: [GET /api/status]",
+        )
+        val response = FrpcLogParser.parse(
+            "2026-10-23 18:57:44.104 [I] [http/middleware.go:33] http response [200 OK]",
+        )
+        assertEquals(true, FrpcLogParser.isAccessLog(request.message))
+        assertEquals(true, FrpcLogParser.isAccessLog(response.message))
+        // 普通业务日志不能被误杀
+        assertEquals(false, FrpcLogParser.isAccessLog("[ssh] start proxy success"))
+        assertEquals(false, FrpcLogParser.isAccessLog("login to server success, get run id [abc]"))
+        assertEquals(false, FrpcLogParser.isAccessLog("http request failed"))
+    }
 }
