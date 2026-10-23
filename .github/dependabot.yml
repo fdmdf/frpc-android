@@ -5,16 +5,33 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # AGP / Kotlin / Gradle 三者版本强耦合（AGP 9 起内置 Kotlin 且 KMP DSL 大改），
+    # 大版本升级必须人工评估，交给机器人开 PR 只会制造红灯
+    ignore:
+      - dependency-name: "com.android.tools.build:gradle"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "org.jetbrains.kotlin*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "gradle"
+        update-types: ["version-update:semver-major"]
     groups:
       androidx:
         patterns:
           - "androidx.*"
-      kotlin:
+          - "com.google.android.material*"
+      kotlinx:
         patterns:
-          - "org.jetbrains.kotlin*"
           - "org.jetbrains.kotlinx*"
+      testing:
+        patterns:
+          - "junit*"
+          - "org.junit*"
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
