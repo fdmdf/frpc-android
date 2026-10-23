@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -101,34 +102,39 @@ class FrpcService : Service() {
         if (observing) return
         observing = true
         scope.launch {
-            FrpcSupervisor.state.collectLatest { st ->
-                if (st.phase != FrpcSupervisor.Phase.IDLE) everActive = true
-                val container = (applicationContext as FrpcApplication).container
-                val profile = container.configRepository.find(st.profileId)
-                val total = profile?.config?.proxies?.size ?: 0
-                val online = FrpcSupervisor.status.value
-                    ?.all
-                    ?.count { it.status == "running" }
-                    ?: 0
-                Notifications.updateStatusNotification(
-                    this@FrpcService,
-                    state = st,
-                    onlineCount = online,
-                    totalCount = total,
-                )
-                when (st.phase) {
-                    // 仅在服务真正运行过后回到 IDLE（用户停止）才退场，避免启动竞态误停
-                    FrpcSupervisor.Phase.IDLE -> if (everActive) stopSelfSafely()
-                    FrpcSupervisor.Phase.ERROR -> {
-                        Notifications.postEvent(
-                            this@FrpcService,
-                            st.error ?: getString(R.string.phase_error),
-                        )
-                        stopSelfSafely()
+            // 合并三个数据源：状态、日志推断的代理状态、Admin 状态快照
+            combine(
+                FrpcSupervisor.state,
+                FrpcSupervisor.logProxyStates,
+                FrpcSupervisor.status,
+            ) { st, logStates, snapshot -> Triple(st, logStates, snapshot) }
+                .collectLatest { (st, logStates, snapshot) ->
+                    if (st.phase != FrpcSupervisor.Phase.IDLE) everActive = true
+                    val container = (applicationContext as FrpcApplication).container
+                    val profile = container.configRepository.find(st.profileId)
+                    val total = profile?.config?.proxies?.size ?: 0
+                    // Admin 优先，其次日志推断（与主页保持一致）
+                    val online = snapshot?.all?.count { it.status == "running" }
+                        ?: logStates.count { it.value.phase == LogProxyPhase.RUNNING }
+                    Notifications.updateStatusNotification(
+                        this@FrpcService,
+                        state = st,
+                        onlineCount = online,
+                        totalCount = total,
+                    )
+                    when (st.phase) {
+                        // 仅在服务真正运行过后回到 IDLE（用户停止）才退场，避免启动竞态误停
+                        FrpcSupervisor.Phase.IDLE -> if (everActive) stopSelfSafely()
+                        FrpcSupervisor.Phase.ERROR -> {
+                            Notifications.postEvent(
+                                this@FrpcService,
+                                st.error ?: getString(R.string.phase_error),
+                            )
+                            stopSelfSafely()
+                        }
+                        else -> Unit
                     }
-                    else -> Unit
                 }
-            }
         }
     }
 

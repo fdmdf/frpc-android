@@ -68,7 +68,9 @@ class FrpcAdminClient(
         body: String? = null,
         expectedCodes: Set<Int>,
     ): String {
-        val connection = (URL("http://$addr:$port$path").openConnection() as HttpURLConnection).apply {
+        // 强制直连：不走系统/ VPN 配置的 HTTP 代理（否则 127.0.0.1 可能被代理拦截）
+        val connection = (URL("http://$addr:$port$path").openConnection(java.net.Proxy.NO_PROXY)
+            as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = connectTimeoutMs
             readTimeout = readTimeoutMs
