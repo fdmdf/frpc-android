@@ -44,7 +44,7 @@ jobs:
         run: bash scripts/build-frpc.sh
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Unit tests (shared JVM + Android, app)
         run: ./gradlew --no-daemon :shared:jvmTest :shared:testDebugUnitTest :androidApp:testDebugUnitTest
