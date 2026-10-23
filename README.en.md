@@ -29,10 +29,10 @@ This project brings the desktop-style workflow (see [frpc-desktop](https://githu
 
 | Area | Capabilities |
 | --- | --- |
-| Config | Multiple server profiles, all proxy types (tcp/udp/http/https/stcp/sudp/xtcp/tcpmux), visitors, type-aware forms, required-field validation, port-conflict pre-check, `frpc.toml` import/export |
+| Config | Multiple server profiles, all proxy types (tcp/udp/http/https/stcp/sudp/xtcp/tcpmux), visitors, type-aware forms, required-field validation, port-conflict pre-check, `frpc.toml` import/export (save to file / share / copy) |
 | Control | Foreground service, graceful stop, hot reload, crash auto-restart (exponential backoff, max 5), boot auto-start |
 | Monitoring | Proxy status (status API first, log inference fallback), live CPU/memory sampling, uptime, thread count, process state |
-| Logs | Real-time parsing (level/source/time), 3000-line ring buffer, level filter, auto-scroll, copy/share |
+| Logs | Real-time parsing (level/source/time), 3000-line ring buffer, level filter, auto-scroll, copy/share; status-poll noise hidden by default |
 | Notification | Ongoing summary (server / online proxies / uptime / CPU / memory), refreshed every 5s, one-tap stop |
 | Web console | The official frpc dashboard is bundled — open `http://127.0.0.1:7400/static/` in the phone browser |
 | Transports | tcp / kcp / quic / websocket / wss, TLS toggle, per-proxy encryption & compression |
