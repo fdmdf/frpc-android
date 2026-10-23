@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>frpc 运行状态</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 40px;
+    font: 15px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    background: #f7f8fa; color: #1b1c1e;
+  }
+  @media (prefers-color-scheme: dark) {
+    body { background: #17181a; color: #e6e6e6; }
+    .card { background: #1f2023 !important; border-color: #2c2e33 !important; }
+    th { color: #9aa0a6 !important; }
+    td { border-color: #2c2e33 !important; }
+    .muted { color: #9aa0a6 !important; }
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .muted { color: #6b7075; font-size: 13px; }
+  .card {
+    background: #fff; border: 1px solid #e6e8eb; border-radius: 12px;
+    padding: 14px 16px; margin-top: 14px;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 6px; font-size: 13px; vertical-align: top; }
+  th { color: #6b7075; font-weight: 500; font-size: 12px; }
+  td { border-top: 1px solid #eef0f2; }
+  .ok { color: #1a8f4c; font-weight: 600; }
+  .err { color: #c62828; font-weight: 600; }
+  .wait { color: #b26a00; font-weight: 600; }
+  .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+  .pill {
+    display: inline-block; padding: 1px 8px; border-radius: 99px;
+    font-size: 12px; background: rgba(128,128,128,.14);
+  }
+  footer { margin-top: 18px; font-size: 12px; color: #6b7075; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<h1>frpc 运行状态</h1>
+<p class="muted">本机状态接口 · 仅 127.0.0.1 可访问 · 每 5 秒自动刷新</p>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>代理</th><th>类型</th><th>状态</th><th>本地</th><th>远端</th></tr>
+    </thead>
+    <tbody id="rows">
+      <tr><td colspan="5" class="muted" id="placeholder">加载中…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <p class="muted" style="margin:0">
+    这是 frpc 自带的最小状态页（未打包完整 Web 控制台以节省安装体积）。<br>
+    查看/管理配置、日志与资源占用请使用 <b>Frpc 客户端</b> App。
+  </p>
+</div>
+
+<footer>
+  数据接口：<a href="/api/status" class="mono">/api/status</a> ·
+  时间：<span id="ts">--</span>（北京时间）
+</footer>
+
+<script>
+(function () {
+  const rows = document.getElementById('rows');
+  const ph = document.getElementById('placeholder');
+  const ts = document.getElementById('ts');
+
+  function statusCell(s, err) {
+    // frp 状态：running / error / new / waitStart / start / closed
+    if (s === 'running') return '<span class="ok">在线</span>';
+    if (s === 'error') return '<span class="err" title="' + (err || '') + '">异常</span>';
+    if (s === 'new' || s === 'waitStart' || s === 'start') return '<span class="wait">启动中</span>';
+    return '<span class="pill">' + (s || '未知') + '</span>';
+  }
+
+  function beijing(now) {
+    const d = new Date(now);
+    // 固定北京时间（UTC+8），与设备时区无关
+    const p = (n) => String(n).padStart(2, '0');
+    const t = new Date(d.getTime() + (d.getTimezoneOffset() + 480) * 60000);
+    return p(t.getHours()) + ':' + p(t.getMinutes()) + ':' + p(t.getSeconds());
+  }
+
+  function render(data) {
+    const items = [];
+    Object.keys(data || {}).forEach(function (type) {
+      (data[type] || []).forEach(function (p) { items.push(p); });
+    });
+    if (!items.length) {
+      rows.innerHTML = '<tr><td colspan="5" class="muted">暂无代理</td></tr>';
+      return;
+    }
+    rows.innerHTML = items.map(function (p) {
+      return '<tr>' +
+        '<td><b>' + (p.name || '') + '</b></td>' +
+        '<td>' + ((p.type || '').toUpperCase()) + '</td>' +
+        '<td>' + statusCell(p.status, p.err) + '</td>' +
+        '<td class="mono">' + (p.local_addr || '-') + '</td>' +
+        '<td class="mono">' + (p.remote_addr || '-') + '</td>' +
+        '</tr>';
+    }).join('');
+  }
+
+  function load() {
+    fetch('/api/status', { headers: { 'Accept': 'application/json' } })
+      .then(function (r) {
+        if (r.status === 401) throw new Error('需要登录：请刷新页面后输入配置中的用户名/密码');
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (data) { render(data); ts.textContent = beijing(Date.now()); })
+      .catch(function (e) {
+        if (ph) ph.remove();
+        rows.innerHTML = '<tr><td colspan="5" class="err">读取失败：' + e.message + '</td></tr>';
+      });
+  }
+
+  load();
+  setInterval(load, 5000);
+})();
+</script>
+</body>
+</html>

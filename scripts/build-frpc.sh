@@ -38,10 +38,16 @@ curl -sSL --max-time 300 -o "$WORK_DIR/frp.zip" \
 python3 -c "import zipfile,sys; zipfile.ZipFile('$WORK_DIR/frp.zip').extractall('$SRC_DIR')"
 FRP_SRC="$SRC_DIR/github.com/fatedier/frp@${FRP_VERSION}"
 
-echo "==> patching web/frpc/dist placeholder for go:embed"
+echo "==> preparing frpc admin status page (web/frpc/dist)"
 mkdir -p "$FRP_SRC/web/frpc/dist"
-printf '<!doctype html><title>frpc</title><p>admin web assets not bundled; JSON API available.</p>\n' \
-  > "$FRP_SRC/web/frpc/dist/index.html"
+# 用仓库内置的迷你状态页（自包含 HTML+JS，直连 /api/status），
+# 不在构建期拉 npm 依赖；需要官方完整 Web 控制台时可在 web/frpc 下 npm install && npm run build
+if [ -f "$REPO_ROOT/scripts/frpc-web-status.html" ]; then
+  cp "$REPO_ROOT/scripts/frpc-web-status.html" "$FRP_SRC/web/frpc/dist/index.html"
+else
+  printf '<!doctype html><title>frpc</title><p>admin web assets not bundled; JSON API available.</p>\n' \
+    > "$FRP_SRC/web/frpc/dist/index.html"
+fi
 
 cd "$FRP_SRC"
 

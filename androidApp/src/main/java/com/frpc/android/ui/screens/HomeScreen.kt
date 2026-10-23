@@ -136,6 +136,14 @@ fun HomeScreen(container: AppContainer, navigator: AppNavigator) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    // 状态页（本机浏览器）入口提示
+                    if (state.adminEnabled && state.adminPort > 0) {
+                        Text(
+                            text = "状态页（本机浏览器）：http://127.0.0.1:${state.adminPort}/static/",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
