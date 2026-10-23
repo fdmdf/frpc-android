@@ -34,7 +34,7 @@ jobs:
       tag: ${{ steps.detect.outputs.tag }}
       is_tag_push: ${{ steps.detect.outputs.is_tag_push }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Resolve versions
         id: detect
@@ -94,18 +94,18 @@ jobs:
     if: needs.detect.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version: 'stable'
           cache: false
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -118,7 +118,7 @@ jobs:
           ls "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools" 2>/dev/null || true
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Build frpc engine (android/arm64)
         env:
@@ -182,7 +182,7 @@ jobs:
           echo "APK_PATH=$OUT" >> "$GITHUB_ENV"
 
       - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.detect.outputs.tag }}
           name: ${{ needs.detect.outputs.is_tag_push == 'true' && format('v{0}', needs.detect.outputs.app_version) || format('frp {0} 引擎更新', needs.detect.outputs.frp_version) }}
