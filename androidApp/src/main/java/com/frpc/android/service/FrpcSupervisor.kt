@@ -123,7 +123,12 @@ object FrpcSupervisor {
             val st = _state.value
             val profile = configRepository.find(st.profileId) ?: return@launch
             val client = adminClient
-            if (st.phase == Phase.RUNNING && client != null) {
+            // 状态接口端口变了（或没启用）时 admin reload 打不到新端口，只能整进程重启
+            val adminPortChanged = (profile.config.webServer?.port ?: 0) != st.adminPort
+            if (st.phase == Phase.RUNNING && client != null && !adminPortChanged) {
+                // 先把最新配置写回运行时 toml：admin reload 只会重读这个文件，
+                // 不写回去的话"编辑后重载"等于什么都没改
+                runCatching { writeToml(profile) }
                 val ok = runCatching { client.reload() }.isSuccess
                 appendSystemLog(
                     if (ok) LogLevel.INFO else LogLevel.ERROR,

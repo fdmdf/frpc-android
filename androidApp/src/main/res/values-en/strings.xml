@@ -73,6 +73,9 @@
     <string name="config_import_title">Import frpc.toml</string>
     <string name="config_import_failed">Import failed: %1$s</string>
     <string name="config_imported">Imported config \"%1$s\"</string>
+    <string name="config_imported_as_default">Imported config \"%1$s\" and set as default</string>
+    <string name="config_running">Running</string>
+    <string name="config_running_hint">This config is running: edit it freely, changes are hot-reloaded on save — no need to stop the service first.</string>
     <string name="config_empty_name">Config name cannot be empty</string>
 
     <string name="field_server_addr">Server address</string>

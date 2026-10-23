@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -43,15 +44,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.frpc.android.R
 import com.frpc.android.data.ServerProfile
 import com.frpc.android.di.AppContainer
+import com.frpc.android.service.FrpcSupervisor
 import com.frpc.android.ui.components.SectionCard
 import com.frpc.android.ui.components.StatusChip
 import com.frpc.android.ui.nav.AppNavigator
 import com.frpc.android.ui.nav.Screen
+import com.frpc.android.ui.theme.StatusRunning
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -62,6 +66,7 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
     val scope = rememberCoroutineScope()
     val profiles by container.configRepository.profiles.collectAsStateWithLifecycle()
     val defaultId by container.settingsRepository.defaultProfileId.collectAsStateWithLifecycle()
+    val supervisorState by FrpcSupervisor.state.collectAsStateWithLifecycle()
     var pendingDelete by remember { mutableStateOf<ServerProfile?>(null) }
     var exportTarget by remember { mutableStateOf<ServerProfile?>(null) }
     var importError by remember { mutableStateOf<String?>(null) }
@@ -89,7 +94,19 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
                     container.configRepository.importToml(fileName ?: "导入配置", text)
                 }.onSuccess { profile ->
                     container.configRepository.upsert(profile)
-                    toast(context, context.getString(R.string.config_imported, profile.name))
+                    // 仓库里只有这一份配置（或还没设默认）时，自动设为默认，避免"导入了但启动时找不到配置"
+                    val onlyOne = container.configRepository.profiles.value.count { it.id != profile.id } == 0
+                    val asDefault = onlyOne || container.settingsRepository.defaultProfileId.value == null
+                    if (asDefault) {
+                        container.settingsRepository.setDefaultProfileId(profile.id)
+                    }
+                    toast(
+                        context,
+                        context.getString(
+                            if (asDefault) R.string.config_imported_as_default else R.string.config_imported,
+                            profile.name,
+                        ),
+                    )
                 }.onFailure { e -> importError = e.message ?: e.toString() }
             }.onFailure { e -> importError = e.message ?: e.toString() }
         }
@@ -144,6 +161,8 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
                 ProfileCard(
                     profile = profile,
                     isDefault = profile.id == defaultId,
+                    isRunning = supervisorState.phase == FrpcSupervisor.Phase.RUNNING &&
+                        supervisorState.profileId == profile.id,
                     onEdit = {
                         container.configEditorStore.beginEdit(profile)
                         navigator.push(Screen.ServerEdit(profile.id))
@@ -158,18 +177,27 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
             }
         }
 
-        // 底部操作条：左侧导入（始终可用），右侧新建
+        // 底部操作条：左侧导入（始终可用），右侧新建。
+        // 让「新建配置」保持自身宽度、由左侧「导入」去吸收剩余空间，
+        // 否则大字号/窄屏时被挤压的是主操作按钮
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
-                Text(stringResource(R.string.action_import))
+            OutlinedButton(
+                onClick = { importLauncher.launch(arrayOf("*/*")) },
+                modifier = Modifier.weight(1f, fill = false),
+            ) {
+                Text(
+                    text = stringResource(R.string.action_import),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
+            Spacer(Modifier.weight(1f))
             ExtendedFloatingActionButton(
                 onClick = {
                     container.configEditorStore.beginNew()
@@ -182,7 +210,13 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
                         modifier = Modifier.size(20.dp),
                     )
                 },
-                text = { Text(stringResource(R.string.config_new), maxLines = 1) },
+                text = {
+                    Text(
+                        text = stringResource(R.string.config_new),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
             )
         }
     }
@@ -274,6 +308,7 @@ fun ConfigListScreen(container: AppContainer, navigator: AppNavigator) {
 private fun ProfileCard(
     profile: ServerProfile,
     isDefault: Boolean,
+    isRunning: Boolean,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
     onExport: () -> Unit,
@@ -290,7 +325,20 @@ private fun ProfileCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = profile.name, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        text = profile.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (isRunning) {
+                        StatusChip(
+                            text = stringResource(R.string.config_running),
+                            color = StatusRunning,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
                     if (isDefault) {
                         StatusChip(
                             text = stringResource(R.string.config_default),

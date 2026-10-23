@@ -31,12 +31,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.frpc.android.R
 import com.frpc.android.data.ServerProfile
 import com.frpc.android.di.AppContainer
+import com.frpc.android.service.FrpcService
+import com.frpc.android.service.FrpcSupervisor
 import com.frpc.android.ui.components.DropdownField
 import com.frpc.android.ui.components.LabeledTextField
 import com.frpc.android.ui.components.NumberField
@@ -62,8 +65,13 @@ fun ConfigEditScreen(
     profileId: String?,
 ) {
     val store = container.configEditorStore
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val draft by store.draft.collectAsStateWithLifecycle()
+    val supervisorState by FrpcSupervisor.state.collectAsStateWithLifecycle()
+    // 正在运行的配置允许直接编辑，保存后自动重载；不再要求先停止服务
+    val editingRunning = supervisorState.phase == FrpcSupervisor.Phase.RUNNING &&
+        supervisorState.profileId == profileId
     var showValidation by remember { mutableStateOf<List<ValidationIssue>?>(null) }
 
     // 防重入：从代理/访问者编辑页返回时本屏幕会重新进入组合，
@@ -108,6 +116,13 @@ fun ConfigEditScreen(
                                     container.settingsRepository.setDefaultProfileId(profile.id)
                                 }
                                 store.clear()
+                                // 若改的正是运行中的配置，直接热重载，省掉"先停止再启动"
+                                val running = FrpcSupervisor.state.value
+                                if (running.phase == FrpcSupervisor.Phase.RUNNING &&
+                                    running.profileId == profile.id
+                                ) {
+                                    context.startService(FrpcService.reloadIntent(context))
+                                }
                                 navigator.pop()
                             }
                         }
@@ -125,6 +140,25 @@ fun ConfigEditScreen(
             contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (editingRunning) {
+                item {
+                    SectionCard {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.config_running_hint),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                            )
+                            TextButton(
+                                onClick = { context.startService(FrpcService.reloadIntent(context)) },
+                            ) {
+                                Text(stringResource(R.string.action_reload))
+                            }
+                        }
+                    }
+                }
+            }
             item {
                 SectionCard(title = stringResource(R.string.field_server_addr)) {
                     LabeledTextField(

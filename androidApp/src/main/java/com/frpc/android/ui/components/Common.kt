@@ -49,6 +49,7 @@ fun StatusChip(
         Text(
             text = text,
             style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
         )
     }
@@ -80,6 +81,7 @@ fun SectionCard(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                     trailing?.invoke()
                 }
@@ -147,7 +149,8 @@ fun SwitchRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.padding(end = 12.dp)) {
+        // weight(1f) 必不可少：不加权重时 Column 会先量到整行宽度，把 Switch 挤出卡片外
+        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
             Text(text = label, style = MaterialTheme.typography.bodyLarge)
             if (supportingText != null) {
                 Text(
