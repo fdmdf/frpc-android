@@ -100,6 +100,7 @@ echo "sdk.dir=/path/to/Android/sdk" > local.properties
 - 支持 ABI：**arm64-v8a**（全部现代真机）；**x86_64**（模拟器）需 `SKIP_X86_64=0 bash scripts/build-frpc.sh` 额外编译后打入 APK
 - **armeabi-v7a 未支持**：Go 对 android/arm 32 位不支持 `CGO_ENABLED=0` 静态链接，上游 frp 官方发布版同样只提供 android/arm64
 - 重新编译/升级 frpc：`bash scripts/build-frpc.sh`（自动写入 VERSION 文件供设置页展示）
+- **内置官方 Web 控制台**：构建时会把 frp 官方控制台产物（`scripts/frpc-web-dist/`，Vue3+Vite，gzip 后约 137KB）嵌入 frpc，手机浏览器访问 `http://127.0.0.1:7400/static/` 即可使用（需输入配置中的用户名/密码）
 
 ## 已知限制（v1.0）
 

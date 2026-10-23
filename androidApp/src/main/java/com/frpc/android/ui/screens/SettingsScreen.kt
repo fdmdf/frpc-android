@@ -133,7 +133,7 @@ fun SettingsScreen(container: AppContainer) {
 
         SectionCard(title = stringResource(R.string.settings_about)) {
             Text(
-                text = stringResource(R.string.settings_about_version, "1.0.0"),
+                text = stringResource(R.string.settings_about_version, com.frpc.android.BuildConfig.VERSION_NAME),
                 style = MaterialTheme.typography.bodyMedium,
             )
             Text(
@@ -142,7 +142,7 @@ fun SettingsScreen(container: AppContainer) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                text = "frp v0.71.1 · Kotlin Multiplatform + Compose",
+                text = "frpc $engineVersion · Kotlin Multiplatform + Compose",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

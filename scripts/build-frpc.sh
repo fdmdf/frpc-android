@@ -38,15 +38,20 @@ curl -sSL --max-time 300 -o "$WORK_DIR/frp.zip" \
 python3 -c "import zipfile,sys; zipfile.ZipFile('$WORK_DIR/frp.zip').extractall('$SRC_DIR')"
 FRP_SRC="$SRC_DIR/github.com/fatedier/frp@${FRP_VERSION}"
 
-echo "==> preparing frpc admin status page (web/frpc/dist)"
+echo "==> preparing frpc admin web console (web/frpc/dist)"
 mkdir -p "$FRP_SRC/web/frpc/dist"
-# 用仓库内置的迷你状态页（自包含 HTML+JS，直连 /api/status），
-# 不在构建期拉 npm 依赖；需要官方完整 Web 控制台时可在 web/frpc 下 npm install && npm run build
-if [ -f "$REPO_ROOT/scripts/frpc-web-status.html" ]; then
-  cp "$REPO_ROOT/scripts/frpc-web-status.html" "$FRP_SRC/web/frpc/dist/index.html"
+# 优先级：仓库内置的官方控制台产物 > 现场 npm 构建 > 迷你兜底页
+if [ -f "$REPO_ROOT/scripts/frpc-web-dist/index.html" ]; then
+  echo "    using prebuilt official dashboard: scripts/frpc-web-dist"
+  cp -r "$REPO_ROOT/scripts/frpc-web-dist/." "$FRP_SRC/web/frpc/dist/"
+elif [ -d "$FRP_SRC/web/frpc/node_modules" ]; then
+  echo "    building dashboard with npm (web/frpc)"
+  ( cd "$FRP_SRC/web/frpc" && npm run build-only )
 else
-  printf '<!doctype html><title>frpc</title><p>admin web assets not bundled; JSON API available.</p>\n' \
-    > "$FRP_SRC/web/frpc/dist/index.html"
+  echo "    WARNING: official dashboard not found, falling back to minimal status page"
+  cp "$REPO_ROOT/scripts/frpc-web-status.html" "$FRP_SRC/web/frpc/dist/index.html" 2>/dev/null \
+    || printf '<!doctype html><title>frpc</title><p>admin web assets not bundled.</p>\n' \
+         > "$FRP_SRC/web/frpc/dist/index.html"
 fi
 
 cd "$FRP_SRC"

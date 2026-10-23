@@ -12,6 +12,17 @@ import androidx.core.app.NotificationManagerCompat
 import com.frpc.android.MainActivity
 import com.frpc.android.R
 
+/** 常驻通知展示数据（由服务侧组装） */
+data class StatusNotificationData(
+    val state: FrpcSupervisor.RuntimeState,
+    val onlineCount: Int,
+    val totalCount: Int,
+    val serverSummary: String,
+    val uptimeText: String,
+    val cpuText: String,
+    val memText: String,
+)
+
 /** 通知：常驻状态（低优先级）+ 事件提醒（默认优先级） */
 object Notifications {
 
@@ -41,20 +52,57 @@ object Notifications {
         manager.createNotificationChannels(listOf(statusChannel, eventChannel))
     }
 
-    fun buildStatusNotification(
-        context: Context,
-        state: FrpcSupervisor.RuntimeState,
-        onlineCount: Int,
-        totalCount: Int,
-    ): Notification {
-        val title = when (state.phase) {
-            FrpcSupervisor.Phase.STARTING -> context.getString(R.string.notification_starting)
-            FrpcSupervisor.Phase.RUNNING ->
-                context.getString(R.string.notification_running, state.profileName, onlineCount, totalCount)
-            FrpcSupervisor.Phase.STOPPING -> context.getString(R.string.notification_stopped)
-            FrpcSupervisor.Phase.ERROR -> context.getString(R.string.notification_error, state.error ?: "")
-            FrpcSupervisor.Phase.IDLE -> context.getString(R.string.notification_stopped)
+    fun buildStatusNotification(context: Context, data: StatusNotificationData): Notification {
+        val state = data.state
+        val contentText: String
+        val bigText: String
+
+        when (state.phase) {
+            FrpcSupervisor.Phase.RUNNING -> {
+                contentText = context.getString(
+                    R.string.notification_collapsed,
+                    state.profileName,
+                    data.onlineCount,
+                    data.totalCount,
+                    data.uptimeText,
+                )
+                bigText = buildString {
+                    if (data.serverSummary.isNotBlank()) {
+                        append(context.getString(R.string.notification_line_server, data.serverSummary))
+                        append('\n')
+                    }
+                    append(
+                        context.getString(
+                            R.string.notification_line_proxies,
+                            data.onlineCount,
+                            data.totalCount,
+                            data.uptimeText,
+                        ),
+                    )
+                    append('\n')
+                    append(
+                        context.getString(
+                            R.string.notification_line_resources,
+                            data.cpuText,
+                            data.memText,
+                        ),
+                    )
+                }
+            }
+            FrpcSupervisor.Phase.STARTING -> {
+                contentText = context.getString(R.string.notification_starting)
+                bigText = contentText
+            }
+            FrpcSupervisor.Phase.ERROR -> {
+                contentText = context.getString(R.string.notification_error, state.error ?: "")
+                bigText = contentText
+            }
+            else -> {
+                contentText = context.getString(R.string.notification_stopped)
+                bigText = contentText
+            }
         }
+
         val contentIntent = PendingIntent.getActivity(
             context,
             0,
@@ -70,32 +118,35 @@ object Notifications {
         return NotificationCompat.Builder(context, CHANNEL_STATUS)
             .setSmallIcon(R.drawable.ic_stat_frpc)
             .setContentTitle(context.getString(R.string.app_name))
-            .setContentText(title)
+            .setContentText(contentText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bigText))
             .setOngoing(true)
             .setSilent(true)
+            .setOnlyAlertOnce(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(contentIntent)
             .addAction(0, context.getString(R.string.action_stop), stopIntent)
             .build()
     }
 
-    fun updateStatusNotification(
-        context: Context,
-        state: FrpcSupervisor.RuntimeState,
-        onlineCount: Int,
-        totalCount: Int,
-    ) {
-        val notification = buildStatusNotification(context, state, onlineCount, totalCount)
-        NotificationManagerCompat.from(context).notify(ONGOING_ID, notification)
+    fun updateStatusNotification(context: Context, data: StatusNotificationData) {
+        runCatching {
+            NotificationManagerCompat.from(context)
+                .notify(ONGOING_ID, buildStatusNotification(context, data))
+        }
     }
 
     fun postEvent(context: Context, text: String) {
-        val notification = NotificationCompat.Builder(context, CHANNEL_EVENTS)
-            .setSmallIcon(R.drawable.ic_stat_frpc)
-            .setContentTitle(context.getString(R.string.app_name))
-            .setContentText(text)
-            .setAutoCancel(true)
-            .build()
-        NotificationManagerCompat.from(context).notify(EVENT_ID, notification)
+        runCatching {
+            val notification = NotificationCompat.Builder(context, CHANNEL_EVENTS)
+                .setSmallIcon(R.drawable.ic_stat_frpc)
+                .setContentTitle(context.getString(R.string.app_name))
+                .setContentText(text)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+                .setAutoCancel(true)
+                .build()
+            NotificationManagerCompat.from(context).notify(EVENT_ID, notification)
+        }
     }
 }

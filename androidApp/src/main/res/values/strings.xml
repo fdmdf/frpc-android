@@ -209,6 +209,10 @@ wss 需服务端前置 TLS 反代；http/https/tcpmux 需 frps 配置 vhost 端�
     <string name="notification_channel_events">事件提醒</string>
     <string name="notification_starting">frpc 启动中…</string>
     <string name="notification_running">%1$s · 在线 %2$d/%3$d</string>
+    <string name="notification_collapsed">%1$s · 在线 %2$d/%3$d · %4$s</string>
+    <string name="notification_line_server">服务器 %1$s</string>
+    <string name="notification_line_proxies">在线代理 %1$d/%2$d · 已运行 %3$s</string>
+    <string name="notification_line_resources">CPU %1$s · 内存 %2$s</string>
     <string name="notification_stopped">frpc 已停止</string>
     <string name="notification_error">frpc 异常退出：%1$s</string>
     <string name="notification_crashed">frpc 进程退出，正在重启…</string>

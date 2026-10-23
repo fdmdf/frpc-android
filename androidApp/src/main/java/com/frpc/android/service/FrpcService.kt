@@ -13,13 +13,16 @@ import androidx.core.app.ServiceCompat
 import com.frpc.android.FrpcApplication
 import com.frpc.android.MainActivity
 import com.frpc.android.R
+import com.frpc.android.util.formatDuration
+import com.frpc.android.util.formatMemoryKb
+import com.frpc.android.util.formatPercent
 import com.frpc.shared.admin.ProxyStatusItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -77,12 +80,7 @@ class FrpcService : Service() {
     }
 
     private fun startAsForeground() {
-        val notification = Notifications.buildStatusNotification(
-            this,
-            state = FrpcSupervisor.state.value,
-            onlineCount = 0,
-            totalCount = 0,
-        )
+        val notification = Notifications.buildStatusNotification(this, buildNotificationData())
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             ServiceCompat.startForeground(
                 this,
@@ -95,6 +93,33 @@ class FrpcService : Service() {
         }
     }
 
+    /** 组装常驻通知数据：服务器 / 在线代理 / 运行时长 / CPU / 内存 */
+    private fun buildNotificationData(): StatusNotificationData {
+        val st = FrpcSupervisor.state.value
+        val container = (applicationContext as FrpcApplication).container
+        val profile = container.configRepository.find(st.profileId)
+        val total = profile?.config?.proxies?.size ?: 0
+        // Admin 优先，其次日志推断（与主页保持一致）
+        val online = FrpcSupervisor.status.value?.all?.count { it.status == "running" }
+            ?: FrpcSupervisor.logProxyStates.value.count { it.value.phase == LogProxyPhase.RUNNING }
+        val uptime = st.startedAtMs
+            ?.let { formatDuration(System.currentTimeMillis() - it) }
+            ?: "--"
+        return StatusNotificationData(
+            state = st,
+            onlineCount = online,
+            totalCount = total,
+            serverSummary = profile?.serverSummary ?: "",
+            uptimeText = uptime,
+            cpuText = formatPercent(FrpcSupervisor.cpuPercent.value),
+            memText = FrpcSupervisor.stats.value?.let { formatMemoryKb(it.rssKb) } ?: "--",
+        )
+    }
+
+    private fun refreshNotification() {
+        Notifications.updateStatusNotification(this, buildNotificationData())
+    }
+
     private var observing = false
     private var everActive = false
 
@@ -102,39 +127,31 @@ class FrpcService : Service() {
         if (observing) return
         observing = true
         scope.launch {
-            // 合并三个数据源：状态、日志推断的代理状态、Admin 状态快照
-            combine(
-                FrpcSupervisor.state,
-                FrpcSupervisor.logProxyStates,
-                FrpcSupervisor.status,
-            ) { st, logStates, snapshot -> Triple(st, logStates, snapshot) }
-                .collectLatest { (st, logStates, snapshot) ->
-                    if (st.phase != FrpcSupervisor.Phase.IDLE) everActive = true
-                    val container = (applicationContext as FrpcApplication).container
-                    val profile = container.configRepository.find(st.profileId)
-                    val total = profile?.config?.proxies?.size ?: 0
-                    // Admin 优先，其次日志推断（与主页保持一致）
-                    val online = snapshot?.all?.count { it.status == "running" }
-                        ?: logStates.count { it.value.phase == LogProxyPhase.RUNNING }
-                    Notifications.updateStatusNotification(
-                        this@FrpcService,
-                        state = st,
-                        onlineCount = online,
-                        totalCount = total,
-                    )
-                    when (st.phase) {
-                        // 仅在服务真正运行过后回到 IDLE（用户停止）才退场，避免启动竞态误停
-                        FrpcSupervisor.Phase.IDLE -> if (everActive) stopSelfSafely()
-                        FrpcSupervisor.Phase.ERROR -> {
-                            Notifications.postEvent(
-                                this@FrpcService,
-                                st.error ?: getString(R.string.phase_error),
-                            )
-                            stopSelfSafely()
-                        }
-                        else -> Unit
+            FrpcSupervisor.state.collectLatest { st ->
+                if (st.phase != FrpcSupervisor.Phase.IDLE) everActive = true
+                refreshNotification()
+                when (st.phase) {
+                    // 仅在服务真正运行过后回到 IDLE（用户停止）才退场，避免启动竞态误停
+                    FrpcSupervisor.Phase.IDLE -> if (everActive) stopSelfSafely()
+                    FrpcSupervisor.Phase.ERROR -> {
+                        Notifications.postEvent(
+                            this@FrpcService,
+                            st.error ?: getString(R.string.phase_error),
+                        )
+                        stopSelfSafely()
                     }
+                    else -> Unit
                 }
+            }
+        }
+        // 运行中每 5 秒刷新一次（运行时长/CPU/内存/在线数实时变化）
+        scope.launch {
+            while (true) {
+                delay(5000)
+                if (FrpcSupervisor.state.value.phase == FrpcSupervisor.Phase.RUNNING) {
+                    refreshNotification()
+                }
+            }
         }
     }
 

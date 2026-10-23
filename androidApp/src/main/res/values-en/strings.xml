@@ -197,6 +197,10 @@ wss needs an external TLS reverse proxy; http/https/tcpmux need frps vhost ports
     <string name="notification_channel_events">Events</string>
     <string name="notification_starting">frpc is starting…</string>
     <string name="notification_running">%1$s · online %2$d/%3$d</string>
+    <string name="notification_collapsed">%1$s · online %2$d/%3$d · %4$s</string>
+    <string name="notification_line_server">Server %1$s</string>
+    <string name="notification_line_proxies">Proxies online %1$d/%2$d · uptime %3$s</string>
+    <string name="notification_line_resources">CPU %1$s · Mem %2$s</string>
     <string name="notification_stopped">frpc stopped</string>
     <string name="notification_error">frpc exited abnormally: %1$s</string>
     <string name="notification_crashed">frpc process exited, restarting…</string>
