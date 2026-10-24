@@ -125,4 +125,32 @@ class FrpcTomlTest {
         assertTrue(toml.contains("[webServer]"))
         assertTrue(toml.contains("port = 7400"))
     }
+
+    /** 回归：keepTunnelOpen 只属于 xtcp visitor；stcp visitor 带上会让 frpc 直接退出 */
+    @Test
+    fun visitor_xtcpOnlyFields_sanitizedPerType() {
+        val toml = """
+            serverAddr = "127.0.0.1"
+            [[visitors]]
+            name = "v-stcp"
+            type = "stcp"
+            serverName = "p"
+            secretKey = "k"
+            bindAddr = "127.0.0.1"
+            bindPort = 6000
+            keepTunnelOpen = true
+        """.trimIndent()
+        val stcp = FrpcToml.decode(toml)
+        assertEquals(null, stcp.visitors.first().keepTunnelOpen)
+        val stcpToml = FrpcToml.encode(stcp)
+        assertTrue(!stcpToml.contains("keepTunnelOpen"), stcpToml)
+
+        // xtcp 保留该字段
+        val xtcp = stcp.copy(
+            visitors = stcp.visitors.map { it.copy(type = "xtcp", keepTunnelOpen = true) },
+        )
+        val xtcpToml = FrpcToml.encode(xtcp)
+        assertTrue(xtcpToml.contains("keepTunnelOpen = true"), xtcpToml)
+        assertTrue(FrpcToml.decode(xtcpToml).visitors.first().keepTunnelOpen == true)
+    }
 }

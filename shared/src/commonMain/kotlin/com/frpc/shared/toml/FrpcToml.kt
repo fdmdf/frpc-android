@@ -27,15 +27,23 @@ object FrpcToml {
     private val parser = TomlParser(inputConfig)
 
     fun encode(config: FrpcConfig): String =
-        format.encodeToString(FrpcConfig.serializer(), config)
+        // 编码前同样做一次类型清理：UI 层切换类型/导入旧档案时可能残留不支持的字段
+        format.encodeToString(
+            FrpcConfig.serializer(),
+            config.copy(
+                proxies = config.proxies.map { it.sanitizedForType() },
+                visitors = config.visitors.map { it.sanitizedForType() },
+            ),
+        )
 
     fun decode(text: String): FrpcConfig {
         val tree = parser.parseString(text)
         mergeDuplicateTables(tree)
         val config = TomlMainDecoder.decode(FrpcConfig.serializer(), tree, inputConfig)
-        // 导入时按代理类型清理不支持的字段（frp 严格解码，多余字段会导致启动失败）
+        // 导入时按代理/访问者类型清理不支持的字段（frp 严格解码，多余字段会导致启动失败）
         return config.copy(
             proxies = config.proxies.map { it.sanitizedForType() },
+            visitors = config.visitors.map { it.sanitizedForType() },
         )
     }
 

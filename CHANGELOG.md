@@ -2,6 +2,12 @@
 
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/)，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)。
 
+## [1.0.12] - 2026-10-24
+
+### 修复
+
+- **stcp/sudp 访问者带 `keepTunnelOpen` 导致 frpc 启动失败**（`decode visitor ... unknown field "keepTunnelOpen"`）：该字段在 frp v1 里只属于 xtcp 访问者（XTCPVisitorConfig）。现在按访问者类型自动清理（`VisitorConfig.sanitizedForType()`），编码/导入/切换类型/保存四处兜底；表单仅在 xtcp 时显示该开关（与桌面端同步修复）
+
 ## [Unreleased]
 
 ## [1.0.11] - 2026-10-24

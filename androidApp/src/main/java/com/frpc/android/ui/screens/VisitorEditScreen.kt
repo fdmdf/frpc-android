@@ -129,7 +129,10 @@ fun VisitorEditScreen(
                     selected = current.type,
                     options = listOf("stcp", "xtcp"),
                     optionLabel = { it.uppercase() },
-                    onSelect = { v -> store.updateVisitor { it.copy(type = v) } },
+                    onSelect = { v ->
+                        // 切类型时清掉不适用字段（keepTunnelOpen 仅 xtcp 有）
+                        store.updateVisitor { it.copy(type = v).sanitizedForType() }
+                    },
                 )
                 LabeledTextField(
                     value = current.serverName,
@@ -168,13 +171,16 @@ fun VisitorEditScreen(
                     },
                     label = stringResource(R.string.field_user),
                 )
-                SwitchRow(
-                    label = stringResource(R.string.field_keep_tunnel_open),
-                    checked = current.keepTunnelOpen ?: false,
-                    onCheckedChange = { v ->
-                        store.updateVisitor { it.copy(keepTunnelOpen = v) }
-                    },
-                )
+                if (current.type == "xtcp") {
+                    SwitchRow(
+                        label = stringResource(R.string.field_keep_tunnel_open),
+                        checked = current.keepTunnelOpen ?: false,
+                        onCheckedChange = { v ->
+                            store.updateVisitor { it.copy(keepTunnelOpen = v) }
+                        },
+                        supportingText = "仅 xtcp 支持；stcp 访问者带上会让 frpc 启动失败",
+                    )
+                }
             }
         }
     }

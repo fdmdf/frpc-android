@@ -120,6 +120,8 @@ data class ProxyTransportConfig(
 
 /**
  * 访问者规则（对应 [[visitors]]），用于 stcp/xtcp 场景。
+ * 注意：frp v1 TOML schema 没有 keepTunnelOpen（那是旧版 INI 的 keep_tunnel_open），
+ * 多写这个字段 frpc 会直接退出（unknown field），因此模型里不能出现它。
  */
 @Serializable
 data class VisitorConfig(
@@ -133,6 +135,17 @@ data class VisitorConfig(
     /** < 0 表示不监听端口 */
     val bindPort: Int = 0,
     val serverUser: String? = null,
-    val keepTunnelOpen: Boolean? = null,
     val fallbackTo: String? = null,
-)
+    // ---- 仅 xtcp：frp v1 里只有 XTCPVisitorConfig 有这些字段，stcp/sudp visitor 带上会 unknown field ----
+    val keepTunnelOpen: Boolean? = null,
+) {
+    /** 是否为 xtcp 访问者 */
+    val isXtcp: Boolean get() = type == "xtcp"
+
+    /** 清理当前类型不支持的字段（frp 对 visitor 同样按类型严格解码） */
+    fun sanitizedForType(): VisitorConfig = if (isXtcp) {
+        this
+    } else {
+        copy(keepTunnelOpen = null, fallbackTo = null)
+    }
+}
