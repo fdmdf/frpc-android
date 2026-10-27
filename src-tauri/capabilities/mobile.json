@@ -1,7 +1,0 @@
-{
-  "$schema": "../gen/schemas/mobile-schema.json",
-  "identifier": "mobile",
-  "description": "Android/iOS capabilities. The autostart plugin is desktop-only, so it must not be listed here.",
-  "platforms": ["android", "iOS"],
-  "permissions": ["core:default", "opener:default", "dialog:default"]
-}

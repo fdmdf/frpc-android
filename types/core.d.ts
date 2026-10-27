@@ -17,7 +17,6 @@ type Listener = {
 enum IpcRouterKeys {
   SERVER = "SERVER",
   LOG = "LOG",
-  VERSION = "VERSION",
   LAUNCH = "LAUNCH",
   PROXY = "PROXY",
   SYSTEM = "SYSTEM",

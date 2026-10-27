@@ -1,7 +1,7 @@
 export default {
   app: {
-    title: "Frpc Desktop",
-    description: "开机自启 / 可视化配置 / 免费开源，提供便捷的使用体验。"
+    title: "Frpc Android",
+    description: "Keep alive / Visual configuration / Free and open source."
   },
   router: {
     home: {
@@ -9,9 +9,6 @@ export default {
     },
     proxy: {
       title: "Proxy"
-    },
-    download: {
-      title: "Download"
     },
     config: {
       title: "Config"
@@ -49,12 +46,6 @@ export default {
           "Please go to the settings page and modify the configuration before starting",
         confirm: "Go to Settings"
       },
-      versionNotFound: {
-        title: "Prompt",
-        message:
-          "Please go to the settings page and select the version before starting",
-        confirm: "Go to Settings"
-      },
       webServerPortInUse: {
         title: "Prompt",
         message:
@@ -63,56 +54,8 @@ export default {
       }
     }
   },
-  comingSoon: {
-    description: "敬请期待"
-  },
-  download: {
-    button: {
-      import: "Import"
-    },
-    mirror: {
-      placeholder: "Download proxy"
-    },
-    viewMode: {
-      card: "Card",
-      list: "List"
-    },
-    message: {
-      importSuccess: "Import successfully",
-      deleteSuccess: "Delete successfully",
-      copyDownloadLinkSuccess: "Copy download link successfully"
-    },
-    alert: {
-      deleteConfirm: {
-        title: "Prompt",
-        message:
-          'Are you sure you want to delete <span class="font-bold text-primary">{name}</span> ?',
-        cancel: "Cancel",
-        confirm: "Delete"
-      },
-      importFailed: {
-        title: "Import failed",
-        versionExists: "Version already exists",
-        architectureNotMatch:
-          "The selected frp architecture does not match the operating system",
-        unrecognizedFile: "Unable to recognize the file"
-      }
-    },
-    version: {
-      size: "Size",
-      downloadCount: "Download count:",
-      publishTime: "Publish time:",
-      downloaded: "Downloaded",
-      notDownloaded: "Not downloaded",
-      delete: "Delete",
-      download: "Download",
-      downloadLink: "Download Link",
-      noVersions: "No available versions"
-    }
-  },
   logger: {
     message: {
-      openSuccess: "Open log successfully",
       refreshSuccess: "Refresh successfully"
     },
     content: {
@@ -139,36 +82,20 @@ export default {
       issues: "Feedback"
     },
     features: {
-      autoStart: "Auto Start",
+      keepAlive: "Background Keep Alive",
       visualConfig: "Visual Configuration",
       freeAndOpen: "Free and Open Source"
     },
     description:
-      "FRP cross-platform desktop client, visual configuration, easy to implement intranet penetration!",
+      "FRP Android client, visual configuration, easy to implement intranet penetration!",
     version: {
       latest: "Latest Version"
     }
   },
   config: {
     form: {
-      customFrpcPath: {
-        label: "frpc Path",
-        placeholder: "Binary path e.g. ~/.local/bin/frpc, or click Auto Detect",
-        tips: "Specify a custom frpc binary file path (e.g. <span class='font-black text-[#5A3DAA]'>~/.local/bin/frpc</span>, <span class='font-black text-[#5A3DAA]'>/usr/local/bin/frpc</span>) or click Auto Detect. When set, this binary takes precedence.",
-        detectedVersion: "Detected Version",
-        autoDetectSuccess: "Auto-detected frpc:",
-        autoDetectNotFound:
-          "No executable frpc binary was detected. Please ensure it is installed or select a downloaded version below.",
-        invalidPath:
-          "The specified path does not exist or lacks execute permission"
-      },
       frpcVerson: {
-        label: "Downloaded Version",
-        placeholder: "Used when no custom frpc path is specified",
-        requireMessage: "Please select Frp version",
-        requireEitherMessage:
-          "Please configure a custom frpc path or select a downloaded version",
-        fallbackTips: "Used when no custom frpc path is specified",
+        label: "Bundled Version",
         androidBuiltin: "Bundled with the app, no download required"
       },
       serverAddr: {
@@ -219,16 +146,6 @@ export default {
         label: "Proxy URL",
         requireMessage: "Please enter proxy URL",
         patternMessage: "Please enter the correct proxy URL"
-      },
-      systemLaunchAtStartup: {
-        label: "Auto Start",
-        requireMessage: "Please select whether to auto start",
-        tips: "Auto start the software when the system starts"
-      },
-      systemSilentStartup: {
-        label: "Silent Startup",
-        requireMessage: "Please select whether to enable silent startup",
-        tips: "Silent startup will not show any UI when the system starts"
       },
       systemAutoConnectOnStartup: {
         label: "Auto Connect",
@@ -317,10 +234,7 @@ export default {
       serverConfiguration: "Server Configuration"
     },
     button: {
-      autoDetect: "Auto Detect",
-      browse: "Browse...",
       manualRefresh: "Manual Refresh",
-      goToDownload: "Click here to download",
       clear: "Clear",
       import: "Import",
       saveWithShortcut: "Save (Ctrl+S / ⌘S)"
@@ -337,26 +251,15 @@ export default {
         message: "Reset successfully, please restart the software",
         confirm: "Restart Now"
       },
-      importTomlConfigSuccess: {
-        title: "Prompt",
-        message:
-          "🎉 Congratulations, import successfully, please restart the software",
-        confirm: "Restart Now"
-      },
       multiuserAlert: {
         title: "Prompt",
         message:
           "The multi-user plugin requires Frp version >= <span class='font-black text-[#5A3DAA]'>v0.31.0</span>. Please select the correct version.",
         confirm: "Got it"
       },
-      exportConfigSuccess: {
-        title: "Prompt",
-        message: "Configuration path: {path}"
-      }
     },
     message: {
       invalidLink: "The link is incorrect, please enter the correct link",
-      openAppDataSuccess: "Open data directory successfully",
       saveSuccess: "Save successfully"
     },
     popover: {
@@ -371,7 +274,7 @@ export default {
         message: "Copy successfully",
         warning: {
           message:
-            "The content generated contains server keys and other information. Please keep it safe and the link is only available in Frpc-Desktop."
+            "The content generated contains server keys and other information. Please keep it safe and the link is only available in Frpc-Android."
         }
       }
     }

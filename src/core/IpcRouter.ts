@@ -12,14 +12,6 @@ export const ipcRouters: IpcRouters = {
       path: "server/resetAllConfig",
       controller: "configController.resetAllConfig"
     },
-    exportConfig: {
-      path: "server/exportConfig",
-      controller: "configController.exportConfig"
-    },
-    importTomlConfig: {
-      path: "server/importTomlConfig",
-      controller: "configController.importTomlConfig"
-    },
     getLanguage: {
       path: "server/getLanguage",
       controller: "configController.getLanguage"
@@ -37,44 +29,6 @@ export const ipcRouters: IpcRouters = {
     getAppLogContent: {
       path: "log/getAppLogContent",
       controller: "logController.getAppLogContent"
-    },
-    openFrpcLogFile: {
-      path: "log/openFrpcLogFile",
-      controller: "logController.openFrpcLogFile"
-    },
-    openAppLogFile: {
-      path: "log/openAppLogFile",
-      controller: "logController.openAppLogFile"
-    }
-  },
-  VERSION: {
-    getVersions: {
-      path: "version/getVersions",
-      controller: "versionController.getVersions"
-    },
-    downloadVersion: {
-      path: "version/downloadVersion",
-      controller: "versionController.downloadFrpVersion"
-    },
-    getDownloadedVersions: {
-      path: "version/getDownloadedVersions",
-      controller: "versionController.getDownloadedVersions"
-    },
-    deleteDownloadedVersion: {
-      path: "version/deleteDownloadedVersion",
-      controller: "versionController.deleteDownloadedVersion"
-    },
-    importLocalFrpcVersion: {
-      path: "version/importLocalFrpcVersion",
-      controller: "versionController.importLocalFrpcVersion"
-    },
-    detectFrpcPath: {
-      path: "version/detectFrpcPath",
-      controller: "versionController.detectFrpcPath"
-    },
-    validateFrpcPath: {
-      path: "version/validateFrpcPath",
-      controller: "versionController.validateFrpcPath"
     }
   },
   LAUNCH: {
@@ -134,17 +88,9 @@ export const ipcRouters: IpcRouters = {
       path: "system/completeGuide",
       controller: "systemController.completeGuide"
     },
-    openAppData: {
-      path: "system/openAppData",
-      controller: "systemController.openAppData"
-    },
-    selectLocalFile: {
-      path: "system/selectLocalFile",
-      controller: "systemController.selectLocalFile"
-    },
-    getFrpcDesktopGithubLastRelease: {
-      path: "system/getFrpcDesktopGithubLastRelease",
-      controller: "systemController.getFrpcDesktopGithubLastRelease"
+    getGithubLastRelease: {
+      path: "system/getGithubLastRelease",
+      controller: "systemController.getGithubLastRelease"
     }
   }
 };
@@ -157,9 +103,5 @@ export const listeners: Listeners = {
   watchFrpcProcess: {
     listenerMethod: "frpcProcessService.watchFrpcProcess",
     channel: "frpcProcess:watchFrpcLog"
-  },
-  watchSystemUsage: {
-    listenerMethod: "systemService.getSystemUsage",
-    channel: "system:watchSystemUsage"
   }
 };

@@ -14,7 +14,7 @@
     <application
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:theme="@style/Theme.frpc_desktop"
+        android:theme="@style/Theme.frpc_android"
         android:extractNativeLibs="true"
         android:usesCleartextTraffic="${usesCleartextTraffic}">
         <activity

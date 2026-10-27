@@ -2,30 +2,48 @@ use crate::config_gen::ConfigGenerator;
 use crate::db::app_config_repo::AppConfigRepository;
 use crate::db::proxy_repo::ProxyRepository;
 use crate::db::server_repo::ServerRepository;
-use crate::db::version_repo::VersionRepository;
 use crate::db::DbManager;
-use crate::downloader::VersionManager;
-use crate::models::{
-    ApiResponse, FrpcProcessStatus, FrpcProxy, OpenSourceFrpcDesktopServer,
-};
+use crate::models::{ApiResponse, FrpcProcessStatus, FrpcProxy, FrpcServerConfig};
 use crate::process::ProcessManager;
-use crate::system::{FrpcDetector, SystemService};
+use crate::system::SystemService;
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 
 pub struct AppState {
     pub db: DbManager,
     pub process_mgr: ProcessManager,
-    pub version_mgr: VersionManager,
-    pub app_data_dir: PathBuf,
     pub config_path: PathBuf,
     pub frpc_log_path: PathBuf,
     pub app_log_path: PathBuf,
 }
 
+/// 内置 frpc 路径：随 APK 安装到 nativeLibraryDir 的 `libfrpc.so`。
+#[cfg(target_os = "android")]
+fn bundled_frpc_binary(app: &AppHandle) -> Result<PathBuf, (String, String)> {
+    crate::android::frpc_binary(app).ok_or_else(|| {
+        (
+            "B1005".to_string(),
+            "内置 frpc 缺失，请重新安装应用".to_string(),
+        )
+    })
+}
+
+/// 本项目只面向 Android，其他目标仅用于本地 `cargo check`/单测，无法实际运行 frpc。
+#[cfg(not(target_os = "android"))]
+fn bundled_frpc_binary(_app: &AppHandle) -> Result<PathBuf, (String, String)> {
+    Err((
+        "B1005".to_string(),
+        "内置 frpc 仅在 Android 目标可用".to_string(),
+    ))
+}
+
 impl AppState {
+    /// 启动 frpc。
+    ///
+    /// Android 上的 frpc 随 APK 分发（`libfrpc.so` 装在 nativeLibraryDir），
+    /// 既不能在线下载也不能改路径，因此固定使用内置二进制。
     pub async fn launch_frpc(&self, app: &AppHandle) -> Result<FrpcProcessStatus, (String, String)> {
         let (server, proxies) = {
             let conn = self.db.conn();
@@ -52,57 +70,7 @@ impl AppState {
             (server, proxies)
         };
 
-        // 桌面端按「自定义路径 -> 已下载版本 -> 系统探测」的顺序解析 frpc。
-        // 移动端没有可执行文件下载链路，固定使用随 APK 打包的内置二进制。
-        #[cfg(desktop)]
-        let binary_path = if !server.custom_frpc_path.trim().is_empty() {
-            let resolved = FrpcDetector::resolve_path(&server.custom_frpc_path);
-            if !resolved.exists() || !FrpcDetector::is_executable_binary(&resolved) {
-                return Err((
-                    "B1005".to_string(),
-                    format!("指定的 frpc 二进制文件不存在或不可执行: {}", resolved.display()),
-                ));
-            }
-            resolved
-        } else if let Some(release_id) = server.frpc_version {
-            let conn = self.db.conn();
-            let version = match VersionRepository::find_by_github_release_id(&conn, release_id) {
-                Ok(Some(v)) => v,
-                _ => return Err(("B1005".to_string(), "未找到版本（请在版本管理中重新下载）".to_string())),
-            };
-            let local_path = match version.local_path {
-                Some(p) => PathBuf::from(p),
-                None => return Err(("B1005".to_string(), "未找到版本（本地路径为空）".to_string())),
-            };
-            match VersionManager::resolve_frpc_binary(&local_path) {
-                Some(bin) => bin,
-                None => {
-                    let _ = VersionRepository::delete_by_github_release_id(&conn, release_id);
-                    return Err((
-                        "B1005".to_string(),
-                        "未找到版本（可执行文件不存在或已被杀毒软件清除，已清理无效记录，请重新下载或添加信任）".to_string(),
-                    ));
-                }
-            }
-        } else {
-            let detected = FrpcDetector::detect();
-            if detected.found {
-                PathBuf::from(detected.path)
-            } else {
-                return Err(("B1005".to_string(), "未配置 frpc 路径或下载版本".to_string()));
-            }
-        };
-
-        #[cfg(mobile)]
-        let binary_path = match crate::android::frpc_binary(app) {
-            Some(path) => path,
-            None => {
-                return Err((
-                    "B1005".to_string(),
-                    "内置 frpc 缺失，请重新安装应用".to_string(),
-                ))
-            }
-        };
+        let binary_path = bundled_frpc_binary(app)?;
 
         let toml_str = ConfigGenerator::gen_toml_config(&server, &proxies, &self.frpc_log_path);
         if let Err(e) = fs::write(&self.config_path, toml_str) {
@@ -156,21 +124,12 @@ async fn handle_ipc_send(
         }
         "server/saveConfig" => {
             if let Some(val) = args {
-                match serde_json::from_value::<OpenSourceFrpcDesktopServer>(val) {
+                match serde_json::from_value::<FrpcServerConfig>(val) {
                     Ok(mut server) => {
                         server.id = "1".to_string();
                         let conn = state.db.conn();
                         match ServerRepository::save_server_config(&conn, &server) {
                             Ok(()) => {
-                                #[cfg(desktop)]
-                                {
-                                    use tauri_plugin_autostart::ManagerExt;
-                                    if server.system.launch_at_startup {
-                                        let _ = app.autolaunch().enable();
-                                    } else {
-                                        let _ = app.autolaunch().disable();
-                                    }
-                                }
                                 ApiResponse::success(serde_json::to_value(&server).unwrap_or(Value::Null))
                             }
                             Err(e) => ApiResponse::internal_error(e.to_string()),
@@ -190,54 +149,6 @@ async fn handle_ipc_send(
                     ApiResponse::success(serde_json::to_value(default_server).unwrap_or(Value::Null))
                 }
                 Err(e) => ApiResponse::internal_error(e.to_string()),
-            }
-        }
-        "server/exportConfig" => {
-            let conn = state.db.conn();
-            let server = match ServerRepository::get_server_config(&conn) {
-                Ok(s) => s,
-                Err(e) => return ApiResponse::internal_error(e.to_string()),
-            };
-            let proxies = match ProxyRepository::get_all_proxies(&conn) {
-                Ok(p) => p,
-                Err(e) => return ApiResponse::internal_error(e.to_string()),
-            };
-            let toml_str = ConfigGenerator::gen_toml_config(&server, &proxies, &state.frpc_log_path);
-
-            if let Some(path_buf) =
-                crate::dialogs::save_file("frpc.toml", "TOML Config", &["toml"])
-            {
-                if let Err(e) = fs::write(&path_buf, &toml_str) {
-                    return ApiResponse::internal_error(format!("Failed to write file: {}", e));
-                }
-                ApiResponse::success(serde_json::json!({
-                    "canceled": false,
-                    "path": path_buf.to_string_lossy()
-                }))
-            } else {
-                ApiResponse::success(serde_json::json!({
-                    "canceled": true,
-                    "path": ""
-                }))
-            }
-        }
-        "server/importTomlConfig" => {
-            if let Some(path_buf) = crate::dialogs::pick_file("TOML Config", &["toml"]) {
-                match fs::read_to_string(&path_buf) {
-                    Ok(_content) => {
-                        // Import TOML
-                        ApiResponse::success(serde_json::json!({
-                            "canceled": false,
-                            "path": path_buf.to_string_lossy()
-                        }))
-                    }
-                    Err(e) => ApiResponse::internal_error(format!("Failed to read file: {}", e)),
-                }
-            } else {
-                ApiResponse::success(serde_json::json!({
-                    "canceled": true,
-                    "path": ""
-                }))
             }
         }
         "server/getLanguage" => {
@@ -367,161 +278,6 @@ async fn handle_ipc_send(
             Err((code, msg)) => ApiResponse::fail(code, msg),
         },
 
-        // --- VERSION ---
-        "version/getVersions" => {
-            let versions = state.version_mgr.get_all_catalog_versions(&state.db).await;
-            ApiResponse::success(serde_json::to_value(versions).unwrap_or(Value::Null))
-        }
-        "version/getDownloadedVersions" => {
-            let conn = state.db.conn();
-            match VersionRepository::get_downloaded_versions(&conn) {
-                Ok(list) => ApiResponse::success(serde_json::to_value(list).unwrap_or(Value::Null)),
-                Err(e) => ApiResponse::internal_error(e.to_string()),
-            }
-        }
-        "version/downloadVersion" => {
-            let (rel_id, mirror) = match args {
-                Some(Value::Object(ref map)) => {
-                    let id = map
-                        .get("githubReleaseId")
-                        .or_else(|| map.get("version"))
-                        .and_then(|v| v.as_i64())
-                        .unwrap_or(0);
-                    let mirror = map
-                        .get("mirrorId")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_string());
-                    (id, mirror)
-                }
-                Some(Value::Number(n)) => (n.as_i64().unwrap_or(0), None),
-                _ => (0, None),
-            };
-
-            if rel_id <= 0 {
-                return ApiResponse::internal_error("Invalid release ID");
-            }
-
-            let app_handle = app.clone();
-            let res = state
-                .version_mgr
-                .download_version(&state.db, rel_id, mirror, move |percent| {
-                    let _ = app_handle.emit(
-                        "version/downloadVersion:hook",
-                        ApiResponse::success(serde_json::json!({
-                            "completed": false,
-                            "percent": percent,
-                            "githubReleaseId": rel_id
-                        })),
-                    );
-                })
-                .await;
-
-            match res {
-                Ok(_ver) => {
-                    let resp_payload = serde_json::json!({
-                        "completed": true,
-                        "percent": 1.0,
-                        "githubReleaseId": rel_id
-                    });
-                    let _ = app.emit(
-                        "version/downloadVersion:hook",
-                        ApiResponse::success(resp_payload.clone()),
-                    );
-                    ApiResponse::success(resp_payload)
-                }
-                Err(e) => ApiResponse::internal_error(e.to_string()),
-            }
-        }
-        "version/deleteDownloadedVersion" => {
-            let rel_id = match args {
-                Some(Value::Object(ref map)) => map
-                    .get("githubReleaseId")
-                    .or_else(|| map.get("version"))
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(0),
-                Some(Value::Number(n)) => n.as_i64().unwrap_or(0),
-                _ => 0,
-            };
-            if rel_id <= 0 {
-                return ApiResponse::internal_error("Invalid release ID");
-            }
-            let conn = state.db.conn();
-            match state.version_mgr.delete_version(&conn, rel_id) {
-                Ok(()) => ApiResponse::success_empty(),
-                Err(e) => ApiResponse::internal_error(e.to_string()),
-            }
-        }
-        "version/importLocalFrpcVersion" => {
-            let path_str = match args {
-                Some(Value::Object(ref map)) => map
-                    .get("path")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string(),
-                Some(Value::String(ref s)) => s.clone(),
-                _ => String::new(),
-            };
-
-            let picked_path = if !path_str.trim().is_empty() {
-                Some(PathBuf::from(path_str))
-            } else {
-                crate::dialogs::pick_file("Frpc Archive", &["tar.gz", "zip", "gz"])
-            };
-
-            match picked_path {
-                Some(path_buf) => {
-                    match state.version_mgr.import_local_file(&state.db, &path_buf).await {
-                        Ok(_) => ApiResponse::success(serde_json::json!({ "canceled": false })),
-                        Err(e) => {
-                            let msg = e.to_string();
-                            if msg.starts_with("B1002:") {
-                                ApiResponse::fail("B1002", msg.trim_start_matches("B1002:"))
-                            } else if msg.starts_with("B1003:") {
-                                ApiResponse::fail("B1003", msg.trim_start_matches("B1003:"))
-                            } else if msg.starts_with("B1004:") {
-                                ApiResponse::fail("B1004", msg.trim_start_matches("B1004:"))
-                            } else {
-                                ApiResponse::fail("B1000", msg)
-                            }
-                        }
-                    }
-                }
-                None => ApiResponse::success(serde_json::json!({ "canceled": true })),
-            }
-        }
-        "version/detectFrpcPath" => {
-            let res = FrpcDetector::detect();
-            ApiResponse::success(serde_json::to_value(res).unwrap_or(Value::Null))
-        }
-        "version/validateFrpcPath" => {
-            let path_str = match args {
-                Some(Value::Object(map)) => map
-                    .get("path")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string(),
-                Some(Value::String(s)) => s,
-                _ => String::new(),
-            };
-            if path_str.trim().is_empty() {
-                ApiResponse::success(serde_json::json!({
-                    "valid": false,
-                    "error": "路径为空"
-                }))
-            } else {
-                match FrpcDetector::validate_path(&path_str) {
-                    Ok(ver) => ApiResponse::success(serde_json::json!({
-                        "valid": true,
-                        "version": ver
-                    })),
-                    Err(e) => ApiResponse::success(serde_json::json!({
-                        "valid": false,
-                        "error": e
-                    })),
-                }
-            }
-        }
-
         // --- LOG ---
         "log/getFrpLogContent" => {
             let lines = SystemService::read_log_tail(&state.frpc_log_path, 500);
@@ -531,23 +287,18 @@ async fn handle_ipc_send(
             let lines = SystemService::read_log_tail(&state.app_log_path, 500);
             ApiResponse::success(Value::String(lines.join("\n")))
         }
-        "log/openFrpcLogFile" => {
-            let _ = SystemService::open_path(&state.frpc_log_path);
-            ApiResponse::success_empty()
-        }
-        "log/openAppLogFile" => {
-            let _ = SystemService::open_path(&state.app_log_path);
-            ApiResponse::success_empty()
-        }
 
         // --- SYSTEM ---
         "system/openUrl" => {
             if let Some(Value::Object(map)) = args {
                 if let Some(url) = map.get("url").and_then(|v| v.as_str()) {
                     #[cfg(target_os = "android")]
-                    let _ = SystemService::open_url_with_app(app, url);
+                    let _ = SystemService::open_url(app, url);
                     #[cfg(not(target_os = "android"))]
-                    let _ = SystemService::open_url(url);
+                    {
+                        let _ = url;
+                        log::warn!("openUrl is only implemented on Android");
+                    }
                 }
             }
             ApiResponse::success_empty()
@@ -569,40 +320,7 @@ async fn handle_ipc_send(
                 Err(e) => ApiResponse::internal_error(e.to_string()),
             }
         }
-        "system/openAppData" => {
-            let _ = SystemService::open_path(&state.app_data_dir);
-            ApiResponse::success_empty()
-        }
-        "system/selectLocalFile" => {
-            let mut filter_name = String::new();
-            let mut extensions: Vec<String> = Vec::new();
-            if let Some(Value::Object(map)) = args {
-                filter_name = map
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                if let Some(Value::Array(exts)) = map.get("extensions") {
-                    extensions = exts
-                        .iter()
-                        .filter_map(|e| e.as_str().map(|s| s.to_string()))
-                        .collect();
-                }
-            }
-            let ext_refs: Vec<&str> = extensions.iter().map(|s| s.as_str()).collect();
-            if let Some(path_buf) = crate::dialogs::pick_file(&filter_name, &ext_refs) {
-                ApiResponse::success(serde_json::json!({
-                    "canceled": false,
-                    "path": path_buf.to_string_lossy()
-                }))
-            } else {
-                ApiResponse::success(serde_json::json!({
-                    "canceled": true,
-                    "path": ""
-                }))
-            }
-        }
-        "system/getFrpcDesktopGithubLastRelease" => {
+        "system/getGithubLastRelease" => {
             let manual = args
                 .as_ref()
                 .and_then(|v| v.get("manual"))

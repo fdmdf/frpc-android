@@ -1,9 +1,9 @@
 <resources>
-    <string name="app_name">"Frpc-Desktop"</string>
-    <string name="main_activity_title">"Frpc-Desktop"</string>
+    <string name="app_name">"Frpc-Android"</string>
+    <string name="main_activity_title">"Frpc-Android"</string>
     <string name="frpc_service_channel">"frpc 运行状态"</string>
     <string name="frpc_service_channel_desc">"frpc 连接期间保持后台运行"</string>
-    <string name="frpc_service_title">"Frpc-Desktop"</string>
+    <string name="frpc_service_title">"Frpc-Android"</string>
     <string name="frpc_service_running">"frpc 已连接，正在后台保持"</string>
     <string name="frpc_service_stopped">"frpc 已断开"</string>
 </resources>

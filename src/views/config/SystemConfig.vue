@@ -1,9 +1,8 @@
 <script lang="ts" setup>
 import IconifyIconOffline from "@/components/IconifyIcon/src/iconifyIconOffline";
-import { isAndroidApp } from "@/utils/platform";
 import { useI18n } from "vue-i18n";
 
-const formData = defineModel<OpenSourceFrpcDesktopServer>({ required: true });
+const formData = defineModel<OpenSourceFrpcServer>({ required: true });
 const emit = defineEmits<{
   languageChange: [language: string];
 }>();
@@ -13,66 +12,6 @@ const { t } = useI18n();
 <template>
   <el-col :span="24">
     <div class="h2">{{ t("config.title.systemConfiguration") }}</div>
-  </el-col>
-  <el-col v-if="!isAndroidApp" :span="8">
-    <el-form-item
-      :label="t('config.form.systemLaunchAtStartup.label')"
-      prop="system.launchAtStartup"
-    >
-      <template #label>
-        <div class="flex items-center mr-1 h-full">
-          <el-popover placement="top" width="300" trigger="hover">
-            <template #default>
-              <div v-html="t('config.form.systemLaunchAtStartup.tips')"></div>
-            </template>
-            <template #reference>
-              <IconifyIconOffline
-                class="text-base"
-                color="#5A3DAA"
-                icon="info"
-              />
-            </template>
-          </el-popover>
-        </div>
-        {{ t("config.form.systemLaunchAtStartup.label") }}
-      </template>
-      <el-switch
-        v-model="formData.system.launchAtStartup"
-        :active-text="t('common.yes')"
-        :inactive-text="t('common.no')"
-        inline-prompt
-      />
-    </el-form-item>
-  </el-col>
-  <el-col v-if="!isAndroidApp" :span="8">
-    <el-form-item
-      :label="t('config.form.systemSilentStartup.label')"
-      prop="system.silentStartup"
-    >
-      <template #label>
-        <div class="flex items-center mr-1 h-full">
-          <el-popover placement="top" width="300" trigger="hover">
-            <template #default>
-              <div v-html="t('config.form.systemSilentStartup.tips')"></div>
-            </template>
-            <template #reference>
-              <IconifyIconOffline
-                class="text-base"
-                color="#5A3DAA"
-                icon="info"
-              />
-            </template>
-          </el-popover>
-        </div>
-        {{ t("config.form.systemSilentStartup.label") }}
-      </template>
-      <el-switch
-        v-model="formData.system.silentStartup"
-        :active-text="t('common.yes')"
-        :inactive-text="t('common.no')"
-        inline-prompt
-      />
-    </el-form-item>
   </el-col>
   <el-col :span="8">
     <el-form-item

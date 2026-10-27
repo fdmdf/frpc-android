@@ -1,15 +1,11 @@
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
+  "$schema": "../gen/schemas/android-schema.json",
   "identifier": "default",
-  "description": "Desktop capabilities (tray, autostart, dialogs)",
-  "platforms": ["macOS", "windows", "linux"],
-  "windows": [
-    "main"
+  "description": "Android capabilities. Only core permissions are used here: opening URLs and the foreground-service notification go through the native FrpcServicePlugin bridge, so no extra Tauri plugin permissions are required.",
+  "platforms": [
+    "android"
   ],
   "permissions": [
-    "core:default",
-    "opener:default",
-    "dialog:default",
-    "autostart:default"
+    "core:default"
   ]
 }

@@ -1,13 +1,9 @@
 <script lang="ts" setup>
 import IconifyIconOffline from "@/components/IconifyIcon/src/iconifyIconOffline";
 import Breadcrumb from "@/layout/compoenets/Breadcrumb.vue";
-import { isAndroidApp } from "@/utils/platform";
 import { useI18n } from "vue-i18n";
 
 const emit = defineEmits<{
-  export: [];
-  import: [];
-  openData: [];
   refresh: [];
   reset: [];
   save: [];
@@ -26,17 +22,8 @@ const { t } = useI18n();
     >
       <IconifyIconOffline icon="refresh-rounded" />
     </el-button>
-    <el-button v-if="!isAndroidApp" plain type="primary" @click="emit('openData')">
-      <IconifyIconOffline icon="folder-rounded" />
-    </el-button>
     <el-button plain type="primary" @click="emit('reset')">
       <IconifyIconOffline icon="deviceReset" />
-    </el-button>
-    <el-button v-if="!isAndroidApp" plain type="primary" @click="emit('import')">
-      <IconifyIconOffline icon="file-open-rounded" />
-    </el-button>
-    <el-button v-if="!isAndroidApp" plain type="primary" @click="emit('export')">
-      <IconifyIconOffline icon="file-save-rounded" />
     </el-button>
     <el-button
       type="primary"

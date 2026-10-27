@@ -1,4 +1,3 @@
-import { isAndroidApp } from "@/utils/platform";
 import { createRouter, createWebHashHistory, RouteRecordRaw } from "vue-router";
 
 const Layout = () => import("@/layout/index.vue");
@@ -31,18 +30,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/proxy/index.vue")
       },
       {
-        path: "/download",
-        name: "Download",
-        meta: {
-          title: "router.download.title",
-          icon: "download",
-          keepAlive: false,
-          // 安卓端 frpc 随 APK 内置，不支持在线下载/导入版本
-          hidden: isAndroidApp
-        },
-        component: () => import("@/views/download/index.vue")
-      },
-      {
         path: "/config",
         name: "Config",
         meta: {
@@ -58,8 +45,7 @@ const routes: RouteRecordRaw[] = [
         meta: {
           title: "router.logger.title",
           icon: "file-copy-sharp",
-          keepAlive: false,
-          hidden: false
+          keepAlive: false
         },
         component: () => import("@/views/logger/index.vue")
       },
@@ -69,22 +55,10 @@ const routes: RouteRecordRaw[] = [
         meta: {
           title: "router.about.title",
           icon: "info-sharp",
-          keepAlive: false,
-          hidden: false
+          keepAlive: false
         },
         component: () => import("@/views/about/index.vue")
       }
-      // {
-      //   path: "/comingSoon",
-      //   name: "ComingSoon",
-      //   meta: {
-      //     title: "敬请期待",
-      //     icon: "material-symbols:file-copy-sharp",
-      //     keepAlive: false,
-      //     hidden: true
-      //   },
-      //   component: () => import("@/views/comingSoon/index.vue")
-      // }
     ]
   }
 ];

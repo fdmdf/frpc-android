@@ -1,10 +1,9 @@
 <script lang="ts" setup>
 import IconifyIconOffline from "@/components/IconifyIcon/src/iconifyIconOffline";
-import { useFrpcDesktopStore } from "@/store/frpcDesktop";
+import { useFrpcStore } from "@/store/frpc";
 import { on, send } from "@/utils/ipcUtils";
-import { bundledFrpcVersion, isAndroidApp } from "@/utils/platform";
+import { bundledFrpcVersion } from "@/utils/platform";
 import { useDebounceFn } from "@vueuse/core";
-import confetti from "canvas-confetti/src/confetti.js";
 import { ElMessage, ElMessageBox, FormInstance, FormRules } from "element-plus";
 import { Base64 } from "js-base64";
 import _ from "lodash";
@@ -42,11 +41,9 @@ defineOptions({
 
 const { t } = useI18n();
 
-const defaultFormData: OpenSourceFrpcDesktopServer = {
+const defaultFormData: OpenSourceFrpcServer = {
   _id: "",
   multiuser: false,
-  frpcVersion: null,
-  customFrpcPath: "",
   loginFailExit: false,
   udpPacketSize: 1500,
   serverAddr: "",
@@ -93,33 +90,14 @@ const defaultFormData: OpenSourceFrpcDesktopServer = {
     pprofEnable: false
   },
   system: {
-    launchAtStartup: false,
-    silentStartup: false,
     autoConnectOnStartup: false,
     language: "en-US"
   },
   user: ""
 };
-const formData = ref<OpenSourceFrpcDesktopServer>(defaultFormData);
+const formData = ref<OpenSourceFrpcServer>(defaultFormData);
 const loading = ref(1);
 const rules = reactive<FormRules>({
-  frpcVersion: [
-    {
-      validator: (_rule: any, value: any, callback: any) => {
-        // 安卓端固定使用内置 frpc，不参与版本/路径校验
-        if (isAndroidApp) {
-          callback();
-          return;
-        }
-        if (!value && !formData.value.customFrpcPath?.trim()) {
-          callback(new Error(t("config.form.frpcVerson.requireEitherMessage")));
-        } else {
-          callback();
-        }
-      },
-      trigger: ["blur", "change"]
-    }
-  ],
   serverAddr: [
     {
       required: true,
@@ -222,20 +200,6 @@ const rules = reactive<FormRules>({
       trigger: "blur"
     }
   ],
-  "system.launchAtStartup": [
-    {
-      required: true,
-      message: t("config.form.systemLaunchAtStartup.requireMessage"),
-      trigger: "change"
-    }
-  ],
-  "system.silentStartup": [
-    {
-      required: true,
-      message: t("config.form.systemSilentStartup.requireMessage"),
-      trigger: "change"
-    }
-  ],
   "system.autoConnectOnStartup": [
     {
       required: true,
@@ -321,10 +285,7 @@ const copyServerConfigBase64 = ref();
 const pasteServerConfigBase64 = ref();
 const formRef = ref<FormInstance>();
 const protocol = ref("frp://");
-const currSelectLocalFileType = ref();
-const detectingPath = ref(false);
-const detectedVersionInfo = ref("");
-const frpcDesktopStore = useFrpcDesktopStore();
+const frpcStore = useFrpcStore();
 const formDirty = ref(false);
 let hydratingForm = true;
 let hasActivatedOnce = false;
@@ -338,17 +299,9 @@ watch(
   { deep: true }
 );
 
-watch(
-  () => frpcDesktopStore.downloadedVersions,
-  (newValue, oldValue) => {
-    checkAndResetVersion();
-  }
-);
-
 const visible = reactive({
   copyServerConfig: false,
-  pasteServerConfig: false,
-  exportConfig: false
+  pasteServerConfig: false
 });
 
 // const exportConfigType = ref("toml");
@@ -386,18 +339,6 @@ const handleMultiuserChange = e => {
   }
 };
 
-const checkAndResetVersion = () => {
-  const currentVersion = formData.value.frpcVersion;
-  if (
-    currentVersion &&
-    !frpcDesktopStore.downloadedVersions.some(
-      item => item.githubReleaseId === currentVersion
-    )
-  ) {
-    formData.value.frpcVersion = null;
-  }
-};
-
 // const handleLoadDownloadedVersion = () => {
 //   send(ipcRouters.VERSION.getDownloadedVersions);
 // };
@@ -421,15 +362,9 @@ onMounted(() => {
             formData.value[key] === undefined ||
             formData.value[key] === null
           ) {
-            if (key !== "frpcVersion") {
-              formData.value[key] = defaultFormData[key];
-            }
+            formData.value[key] = defaultFormData[key];
           }
         });
-        checkAndResetVersion();
-        if (formData.value.customFrpcPath) {
-          handleValidateCustomPath();
-        }
       }
       loading.value = 0;
       formDirty.value = false;
@@ -452,67 +387,7 @@ onMounted(() => {
       });
       loading.value = 0;
       formDirty.value = false;
-      frpcDesktopStore.getLanguage();
-    })
-  );
-
-  listenerCleanups.push(
-    on(ipcRouters.SYSTEM.selectLocalFile, data => {
-      if (!data.canceled) {
-        switch (currSelectLocalFileType.value) {
-          case 1:
-            formData.value.transport.tls.certFile = data.path as string;
-            // tlsConfigCertFile = data;
-            break;
-          case 2:
-            formData.value.transport.tls.keyFile = data.path as string;
-            break;
-          case 3:
-            formData.value.transport.tls.trustedCaFile = data.path as string;
-            // formData.value.tlsConfigTrustedCaFile = data as string;
-            break;
-          case 4:
-            formData.value.customFrpcPath = data.path as string;
-            handleValidateCustomPath();
-            break;
-        }
-      }
-    })
-  );
-
-  listenerCleanups.push(
-    on(ipcRouters.VERSION.detectFrpcPath, (data: any) => {
-      detectingPath.value = false;
-      if (data?.found && data.path) {
-        formData.value.customFrpcPath = data.path;
-        if (data.version) {
-          detectedVersionInfo.value = data.version;
-        }
-        ElMessage({
-          type: "success",
-          message:
-            t("config.form.customFrpcPath.autoDetectSuccess") +
-            " " +
-            data.path +
-            (data.version ? ` (${data.version})` : "")
-        });
-        formRef.value?.validateField("frpcVersion");
-      } else {
-        ElMessage({
-          type: "warning",
-          message: t("config.form.customFrpcPath.autoDetectNotFound")
-        });
-      }
-    })
-  );
-
-  listenerCleanups.push(
-    on(ipcRouters.VERSION.validateFrpcPath, (data: any) => {
-      if (data?.valid) {
-        detectedVersionInfo.value = data.version || "OK";
-      } else {
-        detectedVersionInfo.value = "";
-      }
+      frpcStore.getLanguage();
     })
   );
 
@@ -533,60 +408,13 @@ onMounted(() => {
   );
 
   listenerCleanups.push(
-    on(ipcRouters.SERVER.importTomlConfig, data => {
-      const { canceled, path } = data;
-      if (!canceled) {
-        // 礼花
-        confetti({
-          zIndex: 12002,
-          particleCount: 200,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
-        ElMessageBox.alert(
-          t("config.alert.importTomlConfigSuccess.message"),
-          t("config.alert.importTomlConfigSuccess.title"),
-          {
-            closeOnClickModal: false,
-            showClose: false,
-            confirmButtonText: t("config.alert.importTomlConfigSuccess.confirm")
-          }
-        ).then(() => {
-          send(ipcRouters.SYSTEM.relaunchApp);
-        });
-      }
-    })
-  );
-
-  listenerCleanups.push(
-    on(ipcRouters.SERVER.exportConfig, data => {
-      const { canceled, path } = data;
-      if (!canceled) {
-        ElMessageBox.alert(
-          t("config.alert.exportConfigSuccess.message", { path }),
-          t("config.alert.exportConfigSuccess.title")
-        );
-      }
-    })
-  );
-  // ElMessageBox.alert(data, `提示`);
-  listenerCleanups.push(
-    on(ipcRouters.SYSTEM.openAppData, () => {
-      ElMessage({
-        type: "success",
-        message: t("config.message.openAppDataSuccess")
-      });
-    })
-  );
-
-  listenerCleanups.push(
     on(ipcRouters.SERVER.saveLanguage, () => {
       ElMessage({
         type: "success",
         message: t("config.message.saveSuccess")
       });
       loading.value = 0;
-      frpcDesktopStore.getLanguage();
+      frpcStore.getLanguage();
     })
   );
 
@@ -607,49 +435,12 @@ onDeactivated(() => {
   window.removeEventListener("keydown", handleKeydown);
 });
 
-const handleSelectFile = (type: number, ext: string[]) => {
-  currSelectLocalFileType.value = type;
-  send(ipcRouters.SYSTEM.selectLocalFile, {
-    name: "",
-    extensions: ext
-  });
-};
-
-const handleDetectFrpcPath = () => {
-  detectingPath.value = true;
-  send(ipcRouters.VERSION.detectFrpcPath);
-};
-
-const handleSelectCustomFrpcFile = () => {
-  handleSelectFile(4, []);
-};
-
-const handleValidateCustomPath = useDebounceFn(() => {
-  const path = formData.value.customFrpcPath?.trim();
-  if (!path) {
-    detectedVersionInfo.value = "";
-    formRef.value?.validateField("frpcVersion");
-    return;
-  }
-  send(ipcRouters.VERSION.validateFrpcPath, { path });
-  formRef.value?.validateField("frpcVersion");
-}, 300);
-
 /**
  * 分享配置
  */
 const handleCopyServerConfig2Base64 = useDebounceFn(() => {
-  const {
-    _id,
-    frpcVersion,
-    customFrpcPath,
-    webServer,
-    system,
-    log,
-    udpPacketSize,
-    loginFailExit,
-    ...shareConfig
-  } = _.cloneDeep(formData.value);
+  const { _id, webServer, system, log, udpPacketSize, loginFailExit, ...shareConfig } =
+    _.cloneDeep(formData.value);
   shareConfig.transport.tls.certFile = "";
   shareConfig.transport.tls.keyFile = "";
   shareConfig.transport.tls.trustedCaFile = "";
@@ -706,19 +497,6 @@ const handlePasteServerConfigBase64 = useDebounceFn(() => {
   visible.pasteServerConfig = false;
 }, 300);
 
-const handleShowExportDialog = () => {
-  visible.exportConfig = true;
-};
-
-const handleExportConfig = useDebounceFn(() => {
-  send(ipcRouters.SERVER.exportConfig);
-  // visibles.exportConfig = false;
-}, 300);
-
-const handleImportConfig = () => {
-  send(ipcRouters.SERVER.importTomlConfig);
-};
-
 const handleResetConfig = () => {
   ElMessageBox.alert(
     t("config.alert.resetConfig.message"),
@@ -733,10 +511,6 @@ const handleResetConfig = () => {
   });
 };
 
-const handleOpenDataFolder = useDebounceFn(() => {
-  send(ipcRouters.SYSTEM.openAppData);
-}, 300);
-
 const handleSystemLanguageChange = e => {
   send(ipcRouters.SERVER.saveLanguage, e);
 };
@@ -749,9 +523,6 @@ onUnmounted(() => {
 <template>
   <div class="main">
     <ConfigToolbar
-      @export="handleExportConfig"
-      @import="handleImportConfig"
-      @open-data="handleOpenDataFolder"
       @refresh="handleLoadSavedConfig"
       @reset="handleResetConfig"
       @save="handleSubmit"
@@ -766,17 +537,12 @@ onUnmounted(() => {
           label-width="150"
         >
           <el-row :gutter="10">
-            <el-col v-if="!isAndroidApp" :span="24">
+            <el-col :span="24">
               <div class="flex justify-between h2">
                 <div>{{ t("config.title.versionSelection") }}</div>
               </div>
             </el-col>
-            <el-col v-if="isAndroidApp" :span="24">
-              <div class="flex justify-between h2">
-                <div>{{ t("config.title.versionSelection") }}</div>
-              </div>
-            </el-col>
-            <el-col v-if="isAndroidApp" :span="24">
+            <el-col :span="24">
               <el-form-item :label="t('config.form.frpcVerson.label')">
                 <div class="flex gap-2 items-center w-full">
                   <el-tag size="small" type="success">
@@ -785,131 +551,6 @@ onUnmounted(() => {
                   <span class="text-xs text-gray-500">
                     {{ t("config.form.frpcVerson.androidBuiltin") }}
                   </span>
-                </div>
-              </el-form-item>
-            </el-col>
-            <el-col v-if="!isAndroidApp" :span="24">
-              <el-form-item
-                :label="t('config.form.customFrpcPath.label')"
-                prop="customFrpcPath"
-              >
-                <template #label>
-                  <div class="flex items-center mr-1 h-full">
-                    <el-popover placement="top" width="320" trigger="hover">
-                      <template #default>
-                        <div
-                          v-html="t('config.form.customFrpcPath.tips')"
-                        ></div>
-                      </template>
-                      <template #reference>
-                        <IconifyIconOffline
-                          class="text-base"
-                          color="#5A3DAA"
-                          icon="info"
-                        />
-                      </template>
-                    </el-popover>
-                  </div>
-                  {{ t("config.form.customFrpcPath.label") }}
-                </template>
-                <div class="flex gap-2 w-full items-center">
-                  <el-input
-                    v-model="formData.customFrpcPath"
-                    :placeholder="t('config.form.customFrpcPath.placeholder')"
-                    clearable
-                    @input="handleValidateCustomPath"
-                    @clear="handleValidateCustomPath"
-                  />
-                  <el-button
-                    :loading="detectingPath"
-                    type="primary"
-                    @click="handleDetectFrpcPath"
-                  >
-                    <IconifyIconOffline class="mr-1" icon="refresh-rounded" />
-                    {{ t("config.button.autoDetect") }}
-                  </el-button>
-                  <el-button @click="handleSelectCustomFrpcFile">
-                    <IconifyIconOffline class="mr-1" icon="file-open-rounded" />
-                    {{ t("config.button.browse") }}
-                  </el-button>
-                </div>
-                <div
-                  v-if="detectedVersionInfo"
-                  class="flex items-center mt-1 text-xs text-gray-500 w-full"
-                >
-                  <span class="mr-1.5"
-                    >{{
-                      t("config.form.customFrpcPath.detectedVersion")
-                    }}:</span
-                  >
-                  <el-tag size="small" type="success">{{
-                    detectedVersionInfo
-                  }}</el-tag>
-                </div>
-              </el-form-item>
-            </el-col>
-            <el-col v-if="!isAndroidApp" :span="24">
-              <el-form-item
-                :label="t('config.form.frpcVerson.label')"
-                prop="frpcVersion"
-              >
-                <template #label>
-                  <div class="flex items-center mr-1 h-full">
-                    <el-popover placement="top" width="300" trigger="hover">
-                      <template #default>
-                        <div
-                          v-html="t('config.form.frpcVerson.fallbackTips')"
-                        ></div>
-                      </template>
-                      <template #reference>
-                        <IconifyIconOffline
-                          class="text-base"
-                          color="#5A3DAA"
-                          icon="info"
-                        />
-                      </template>
-                    </el-popover>
-                  </div>
-                  {{ t("config.form.frpcVerson.label") }}
-                </template>
-                <el-select
-                  v-model="formData.frpcVersion"
-                  class="w-full"
-                  clearable
-                  :placeholder="t('config.form.frpcVerson.placeholder')"
-                  @change="() => formRef?.validateField('frpcVersion')"
-                >
-                  <el-option
-                    v-for="v in frpcDesktopStore.downloadedVersions"
-                    :key="v.githubReleaseId"
-                    :label="v.name"
-                    :value="v.githubReleaseId"
-                  />
-                </el-select>
-                <div class="flex justify-between items-center w-full mt-1">
-                  <div class="text-xs text-gray-400">
-                    {{ t("config.form.frpcVerson.fallbackTips") }}
-                  </div>
-                  <div class="flex">
-                    <el-link
-                      type="primary"
-                      @click="frpcDesktopStore.refreshDownloadedVersion()"
-                    >
-                      <iconify-icon-offline
-                        class="mr-1"
-                        icon="refresh-rounded"
-                      />
-                      {{ t("config.button.manualRefresh") }}
-                    </el-link>
-                    <el-link
-                      class="ml-2"
-                      type="primary"
-                      @click="$router.replace({ name: 'Download' })"
-                    >
-                      <IconifyIconOffline class="mr-1" icon="download" />
-                      {{ t("config.button.goToDownload") }}
-                    </el-link>
-                  </div>
                 </div>
               </el-form-item>
             </el-col>
@@ -1555,18 +1196,9 @@ onUnmounted(() => {
                   </template>
                   <el-input
                     v-model="formData.transport.tls.certFile"
-                    class="button-input !cursor-pointer"
                     :placeholder="t('config.form.tlsCertFile.placeholder')"
-                    readonly
                     clearable
-                    @click="isAndroidApp || handleSelectFile(1, ['crt'])"
                   />
-                  <!--                  <el-button-->
-                  <!--                    class="ml-2"-->
-                  <!--                    type="primary"-->
-                  <!--                    @click="handleSelectFile(1, ['crt'])"-->
-                  <!--                    >选择-->
-                  <!--                  </el-button>-->
                   <el-button
                     v-if="formData.transport.tls.certFile"
                     class="ml-2"
@@ -1604,17 +1236,9 @@ onUnmounted(() => {
                   </template>
                   <el-input
                     v-model="formData.transport.tls.keyFile"
-                    class="button-input"
                     :placeholder="t('config.form.tlsKeyFile.placeholder')"
-                    readonly
-                    @click="isAndroidApp || handleSelectFile(2, ['key'])"
+                    clearable
                   />
-                  <!--                  <el-button-->
-                  <!--                    class="ml-2"-->
-                  <!--                    type="primary"-->
-                  <!--                    @click="handleSelectFile(2, ['key'])"-->
-                  <!--                    >选择-->
-                  <!--                  </el-button>-->
                   <el-button
                     v-if="formData.transport.tls.keyFile"
                     class="ml-2"
@@ -1652,17 +1276,9 @@ onUnmounted(() => {
                   </template>
                   <el-input
                     v-model="formData.transport.tls.trustedCaFile"
-                    class="button-input"
                     :placeholder="t('config.form.caCertFile.placeholder')"
-                    readonly
-                    @click="isAndroidApp || handleSelectFile(3, ['crt'])"
+                    clearable
                   />
-                  <!--                  <el-button-->
-                  <!--                    class="ml-2"-->
-                  <!--                    type="primary"-->
-                  <!--                    @click="handleSelectFile(3, ['crt'])"-->
-                  <!--                    >选择-->
-                  <!--                  </el-button>-->
                   <el-button
                     v-if="formData.transport.tls.trustedCaFile"
                     class="ml-2"
@@ -1769,39 +1385,6 @@ onUnmounted(() => {
         </div>
       </template>
     </el-dialog>
-    <!--    配置导出-->
-    <!--    <el-dialog-->
-    <!--      v-model="visibles.exportConfig"-->
-    <!--      title="导出配置"-->
-    <!--      width="500"-->
-    <!--      top="5%"-->
-    <!--    >-->
-    <!--      <el-alert-->
-    <!--        class="mb-4"-->
-    <!--        :title="`导出文件名为 frpc-desktop.${exportConfigType} 重复导出则覆盖`"-->
-    <!--        type="warning"-->
-    <!--        :closable="false"-->
-    <!--      />-->
-    <!--      <el-form>-->
-    <!--        <el-form-item label="导出类型">-->
-    <!--          <el-radio-group v-model="exportConfigType">-->
-    <!--            <el-radio-button label="toml" value="toml" />-->
-    <!--            <el-radio-button label="ini" value="ini" />-->
-    <!--          </el-radio-group>-->
-    <!--        </el-form-item>-->
-    <!--      </el-form>-->
-    <!--      <template #footer>-->
-    <!--        <div class="dialog-footer">-->
-    <!--          <el-button plain type="primary" @click="handleExportConfig">-->
-    <!--            <IconifyIconOffline-->
-    <!--              class="mr-2 cursor-pointer"-->
-    <!--              icon="downloadRounded"-->
-    <!--            />-->
-    <!--            导 出-->
-    <!--          </el-button>-->
-    <!--        </div>-->
-    <!--      </template>-->
-    <!--    </el-dialog>-->
   </div>
 </template>
 

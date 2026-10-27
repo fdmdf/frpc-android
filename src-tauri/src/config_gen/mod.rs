@@ -1,4 +1,4 @@
-use crate::models::{FrpcProxy, OpenSourceFrpcDesktopServer};
+use crate::models::{FrpcProxy, FrpcServerConfig};
 use std::path::Path;
 
 pub struct ConfigGenerator;
@@ -28,7 +28,7 @@ impl ConfigGenerator {
     }
 
     pub fn gen_toml_config(
-        server: &OpenSourceFrpcDesktopServer,
+        server: &FrpcServerConfig,
         proxies: &[FrpcProxy],
         frpc_log_path: &Path,
     ) -> String {

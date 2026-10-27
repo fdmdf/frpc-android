@@ -2,7 +2,7 @@
 import IconifyIconOffline from "@/components/IconifyIcon/src/iconifyIconOffline";
 import { useI18n } from "vue-i18n";
 
-const formData = defineModel<OpenSourceFrpcDesktopServer>({ required: true });
+const formData = defineModel<OpenSourceFrpcServer>({ required: true });
 const { t } = useI18n();
 </script>
 

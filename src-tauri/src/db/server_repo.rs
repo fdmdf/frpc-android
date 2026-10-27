@@ -1,15 +1,13 @@
 use crate::db::app_config_repo::AppConfigRepository;
-use crate::models::{
-    AuthConfig, LogConfig, OpenSourceFrpcDesktopServer, TransportConfig, WebServerConfig,
-};
+use crate::models::{AuthConfig, FrpcServerConfig, LogConfig, TransportConfig, WebServerConfig};
 use rusqlite::{params, Connection, OptionalExtension, Result};
 use std::collections::HashMap;
 
 pub struct ServerRepository;
 
 impl ServerRepository {
-    pub fn create_default_server() -> OpenSourceFrpcDesktopServer {
-        let mut server = OpenSourceFrpcDesktopServer::default();
+    pub fn create_default_server() -> FrpcServerConfig {
+        let mut server = FrpcServerConfig::default();
         server.id = "1".to_string();
         server.server_port = 7000;
         server.udp_packet_size = 1500;
@@ -38,30 +36,28 @@ impl ServerRepository {
         server
     }
 
-    pub fn get_server_config(conn: &Connection) -> Result<OpenSourceFrpcDesktopServer> {
+    pub fn get_server_config(conn: &Connection) -> Result<FrpcServerConfig> {
         let mut stmt = conn.prepare(
-            "SELECT id, frpc_version, multiuser, user, server_addr, server_port,
+            "SELECT id, multiuser, user, server_addr, server_port,
                     login_fail_exit, udp_packet_size, auth_json, log_json,
-                    web_server_json, transport_json, metadatas_json, custom_frpc_path
+                    web_server_json, transport_json, metadatas_json
              FROM t_frpcd_servers WHERE id = '1'",
         )?;
 
         let server_opt = stmt
             .query_row([], |row| {
                 let id: String = row.get(0)?;
-                let frpc_version: Option<i64> = row.get(1)?;
-                let multiuser_int: i64 = row.get(2)?;
-                let user: String = row.get(3)?;
-                let server_addr: String = row.get(4)?;
-                let server_port: i64 = row.get(5)?;
-                let login_fail_exit_int: i64 = row.get(6)?;
-                let udp_packet_size: i64 = row.get(7)?;
-                let auth_json: String = row.get(8)?;
-                let log_json: String = row.get(9)?;
-                let web_server_json: String = row.get(10)?;
-                let transport_json: String = row.get(11)?;
-                let metadatas_json: String = row.get(12)?;
-                let custom_frpc_path: String = row.get(13).unwrap_or_default();
+                let multiuser_int: i64 = row.get(1)?;
+                let user: String = row.get(2)?;
+                let server_addr: String = row.get(3)?;
+                let server_port: i64 = row.get(4)?;
+                let login_fail_exit_int: i64 = row.get(5)?;
+                let udp_packet_size: i64 = row.get(6)?;
+                let auth_json: String = row.get(7)?;
+                let log_json: String = row.get(8)?;
+                let web_server_json: String = row.get(9)?;
+                let transport_json: String = row.get(10)?;
+                let metadatas_json: String = row.get(11)?;
 
                 let auth: AuthConfig =
                     crate::db::from_json_lenient(&auth_json);
@@ -74,10 +70,8 @@ impl ServerRepository {
                 let metadatas: HashMap<String, serde_json::Value> =
                     crate::db::from_json_lenient(&metadatas_json);
 
-                Ok(OpenSourceFrpcDesktopServer {
+                Ok(FrpcServerConfig {
                     id,
-                    frpc_version,
-                    custom_frpc_path,
                     multiuser: multiuser_int == 1,
                     user,
                     server_addr,
@@ -112,7 +106,7 @@ impl ServerRepository {
 
     pub fn save_server_config(
         conn: &Connection,
-        server: &OpenSourceFrpcDesktopServer,
+        server: &FrpcServerConfig,
     ) -> Result<()> {
         let auth_json = serde_json::to_string(&server.auth).unwrap_or_else(|_| "{}".to_string());
         let log_json = serde_json::to_string(&server.log).unwrap_or_else(|_| "{}".to_string());
@@ -125,13 +119,12 @@ impl ServerRepository {
 
         conn.execute(
             "INSERT INTO t_frpcd_servers (
-                id, frpc_version, multiuser, user, server_addr, server_port,
+                id, multiuser, user, server_addr, server_port,
                 login_fail_exit, udp_packet_size, auth_json, log_json,
-                web_server_json, transport_json, metadatas_json, custom_frpc_path
+                web_server_json, transport_json, metadatas_json
             ) VALUES (
-                '1', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13
+                '1', ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
             ) ON CONFLICT(id) DO UPDATE SET
-                frpc_version = excluded.frpc_version,
                 multiuser = excluded.multiuser,
                 user = excluded.user,
                 server_addr = excluded.server_addr,
@@ -142,10 +135,8 @@ impl ServerRepository {
                 log_json = excluded.log_json,
                 web_server_json = excluded.web_server_json,
                 transport_json = excluded.transport_json,
-                metadatas_json = excluded.metadatas_json,
-                custom_frpc_path = excluded.custom_frpc_path",
+                metadatas_json = excluded.metadatas_json",
             params![
-                server.frpc_version,
                 if server.multiuser { 1 } else { 0 },
                 server.user,
                 server.server_addr,
@@ -157,7 +148,6 @@ impl ServerRepository {
                 web_server_json,
                 transport_json,
                 metadatas_json,
-                server.custom_frpc_path,
             ],
         )?;
 
@@ -169,7 +159,7 @@ impl ServerRepository {
         conn.execute("DELETE FROM t_frpcd_proxies", [])?;
         conn.execute("DELETE FROM t_frpcd_servers", [])?;
         conn.execute(
-            "DELETE FROM t_frpcd_app_config WHERE namespace = 'desktop'",
+            "DELETE FROM t_frpcd_app_config WHERE namespace = 'app'",
             [],
         )?;
         let default_s = Self::create_default_server();

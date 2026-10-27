@@ -24,14 +24,6 @@ const activeTabName = ref("app_log");
 const logRecords = ref<Array<LogRecord>>([]);
 const listenerCleanups: Array<() => void> = [];
 
-const openLocalLog = useDebounceFn(() => {
-  if (activeTabName.value === "app_log") {
-    send(ipcRouters.LOG.openAppLogFile);
-  } else {
-    send(ipcRouters.LOG.openFrpcLogFile);
-  }
-}, 1000);
-
 const refreshLog = useDebounceFn(() => {
   // ElMessage({
   //   type: "warning",
@@ -140,15 +132,6 @@ onMounted(() => {
     })
   );
 
-  listenerCleanups.push(
-    on(ipcRouters.LOG.openFrpcLogFile, () => {
-      ElMessage({
-        type: "success",
-        message: t("logger.message.openSuccess")
-      });
-    })
-  );
-
   // send(ipcRouters.LOG.getFrpLogContent);
   send(ipcRouters.LOG.getAppLogContent);
 });
@@ -199,11 +182,6 @@ onUnmounted(() => {
                 size="small"
                 @click="refreshLog"
               />
-              <IconifyIconOffline
-                class="text-gray-400 transition-colors duration-200 cursor-pointer hover:text-gray-300"
-                icon="file-open-rounded"
-                @click="openLocalLog"
-              />
             </template>
           </log-view>
         </el-tab-pane>
@@ -233,11 +211,6 @@ onUnmounted(() => {
                 icon="refresh-rounded"
                 size="small"
                 @click="refreshLog"
-              />
-              <IconifyIconOffline
-                class="text-gray-400 transition-colors duration-200 cursor-pointer hover:text-gray-300"
-                icon="file-open-rounded"
-                @click="openLocalLog"
               />
             </template>
           </log-view>

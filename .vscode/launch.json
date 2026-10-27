@@ -14,9 +14,9 @@
         },
         {
             "type": "node-terminal",
-            "name": "tauri dev",
+            "name": "android dev",
             "request": "launch",
-            "command": "npm run tauri:dev",
+            "command": "npm run android:dev",
             "cwd": "${workspaceFolder}"
         }
     ]

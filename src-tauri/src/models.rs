@@ -159,10 +159,6 @@ fn default_protocol() -> String {
 #[serde(rename_all = "camelCase")]
 pub struct FrpcSystemConfiguration {
     #[serde(default)]
-    pub launch_at_startup: bool,
-    #[serde(default)]
-    pub silent_startup: bool,
-    #[serde(default)]
     pub auto_connect_on_startup: bool,
     #[serde(default = "default_language")]
     pub language: String,
@@ -172,15 +168,12 @@ fn default_language() -> String {
     "en-US".to_string()
 }
 
+/// 服务端（frps）连接配置 + 系统偏好。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct OpenSourceFrpcDesktopServer {
+pub struct FrpcServerConfig {
     #[serde(rename = "_id", default = "default_server_id")]
     pub id: String,
-    #[serde(default)]
-    pub frpc_version: Option<i64>,
-    #[serde(default)]
-    pub custom_frpc_path: String,
     #[serde(default)]
     pub multiuser: bool,
     #[serde(default)]
@@ -303,74 +296,10 @@ fn default_proxy_status() -> i64 {
     1
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct FrpcVersion {
-    #[serde(rename = "_id", default)]
-    pub id: String,
-    pub github_release_id: i64,
-    pub github_asset_id: i64,
-    pub github_created_at: String,
-    pub name: String,
-    pub asset_name: String,
-    #[serde(default)]
-    pub version_download_count: i64,
-    #[serde(default)]
-    pub asset_download_count: i64,
-    pub browser_download_url: String,
-    #[serde(default = "default_true")]
-    pub downloaded: bool,
-    #[serde(default)]
-    pub local_path: Option<String>,
-    #[serde(default)]
-    pub size: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GithubAsset {
-    pub id: i64,
-    #[serde(default)]
-    pub name: String,
-    #[serde(default)]
-    pub size: i64,
-    #[serde(default)]
-    pub download_count: i64,
-    #[serde(default)]
-    pub created_at: String,
-    #[serde(default)]
-    pub browser_download_url: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GithubRelease {
-    pub id: i64,
-    #[serde(default)]
-    pub name: String,
-    pub tag_name: Option<String>,
-    pub body: Option<String>,
-    pub html_url: Option<String>,
-    #[serde(default)]
-    pub assets: Vec<GithubAsset>,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrpcProcessStatus {
     pub running: bool,
     pub connection_error: Option<String>,
     pub last_start_time: Option<i64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SystemMemoryUsage {
-    pub used: u64,
-    pub percentage: f32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SystemUsage {
-    pub cpu: f32,
-    pub memory: SystemMemoryUsage,
 }

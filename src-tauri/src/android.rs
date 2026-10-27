@@ -1,8 +1,8 @@
 //! Android 适配层。
 //!
-//! Android 10+ 禁止从应用数据目录 `execve`（SELinux 限制），因此 frpc 不能像
-//! 桌面端那样下载到用户目录再执行。这里的做法是把 frpc 交叉编译成 `libfrpc.so`
-//! 随 APK 一起安装，运行时从 `nativeLibraryDir` 读取并执行——该目录具备可执行权限。
+//! Android 10+ 禁止从应用数据目录 `execve`（SELinux 限制），所以 frpc 不能下载到
+//! 用户目录再执行。这里的做法是把 frpc 交叉编译成 `libfrpc.so` 随 APK 一起安装，
+//! 运行时从 `nativeLibraryDir` 读取并执行——该目录具备可执行权限。
 //!
 //! 另外，Android 会把后台进程冻结/回收，所以 frpc 运行期间需要拉起一个前台服务
 //! 保活，这部分由 Kotlin 侧的 `FrpcForegroundService` 完成。
@@ -16,7 +16,7 @@ use tauri::{AppHandle, Manager, Runtime, Wry};
 /// 插件标识符必须等于 Kotlin 插件所在的 **Java 包名**：`register_android_plugin` 内部会
 /// 拼接成 `{identifier}.{className}` 再 `Class.forName`，写成 `frpc-android` 这类名字会
 /// 抛 `ClassNotFoundException`，进而让整个 setup 失败、应用启动即崩溃。
-const PLUGIN_NAME: &str = "priv.liujiawei.frpc.desktop";
+const PLUGIN_NAME: &str = "priv.fdmdf.frpc.android";
 /// Kotlin 插件类的简单类名。
 const PLUGIN_CLASS: &str = "FrpcServicePlugin";
 /// APK 内打包的 frpc 二进制名（必须以 lib 开头、.so 结尾才会被安装解压）。

@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import Breadcrumb from "@/layout/compoenets/Breadcrumb.vue";
 import router from "@/router";
-import { useFrpcDesktopStore } from "@/store/frpcDesktop";
+import { useFrpcStore } from "@/store/frpc";
 import { on, send } from "@/utils/ipcUtils";
 import { useDebounceFn } from "@vueuse/core";
 import { ElMessageBox } from "element-plus";
@@ -19,7 +19,7 @@ defineComponent({
   name: "Home"
 });
 
-const frpcDesktopStore = useFrpcDesktopStore();
+const frpcStore = useFrpcStore();
 const loading = ref(false);
 const now = ref(Date.now());
 let uptimeTimer: ReturnType<typeof setInterval> | null = null;
@@ -28,8 +28,8 @@ const listenerCleanups: Array<() => void> = [];
 
 // Three-state status: "running" | "error" | "stopped"
 const frpcStatus = computed(() => {
-  if (!frpcDesktopStore.frpcProcessRunning) return "stopped";
-  if (frpcDesktopStore.frpcConnectionError) return "error";
+  if (!frpcStore.frpcProcessRunning) return "stopped";
+  if (frpcStore.frpcConnectionError) return "error";
   return "running";
 });
 
@@ -43,7 +43,7 @@ const handleStopFrpc = () => {
 
 const handleButtonClick = useDebounceFn(() => {
   loading.value = true;
-  if (frpcDesktopStore.frpcProcessRunning) {
+  if (frpcStore.frpcProcessRunning) {
     handleStopFrpc();
   } else {
     handleStartFrpc();
@@ -51,9 +51,9 @@ const handleButtonClick = useDebounceFn(() => {
 }, 300);
 
 const uptime = computed(() => {
-  const lastStartTime = frpcDesktopStore.frpcProcessLastStartTime;
+  const lastStartTime = frpcStore.frpcProcessLastStartTime;
   const uptime =
-    frpcDesktopStore.frpcProcessRunning && lastStartTime > 0
+    frpcStore.frpcProcessRunning && lastStartTime > 0
       ? Math.max(0, now.value - lastStartTime) / 1000
       : 0;
   const days = Math.floor(uptime / (24 * 60 * 60));
@@ -77,7 +77,7 @@ const uptime = computed(() => {
 // Reset loading whenever the running state changes (covers cases where the IPC
 // reply is delayed or never arrives, e.g. macOS sudo/osascript flow).
 watch(
-  () => frpcDesktopStore.frpcProcessRunning,
+  () => frpcStore.frpcProcessRunning,
   () => {
     loading.value = false;
   }
@@ -91,7 +91,7 @@ onMounted(() => {
     on(
       ipcRouters.LAUNCH.launch,
       () => {
-        frpcDesktopStore.refreshRunning();
+        frpcStore.refreshRunning();
         loading.value = false;
       },
       (bizCode: string, message: string) => {
@@ -140,7 +140,7 @@ onMounted(() => {
 
   listenerCleanups.push(
     on(ipcRouters.LAUNCH.terminate, () => {
-      frpcDesktopStore.refreshRunning();
+      frpcStore.refreshRunning();
       loading.value = false;
     })
   );
@@ -168,19 +168,19 @@ onUnmounted(() => {
           >
             <transition name="fade">
               <div
-                v-show="frpcDesktopStore.frpcProcessRunning"
+                v-show="frpcStore.frpcProcessRunning"
                 class="z-0 rounded-full opacity-20 left-circle bg-[#5A3DAA] w-full h-full animation-rotate-1"
               />
             </transition>
             <transition name="fade">
               <div
-                v-show="frpcDesktopStore.frpcProcessRunning"
+                v-show="frpcStore.frpcProcessRunning"
                 class="z-0 rounded-full opacity-20 right-circle top-[10px] bg-[#5A3DAA] w-full h-full animation-rotate-2"
               />
             </transition>
             <transition name="fade">
               <div
-                v-show="frpcDesktopStore.frpcProcessRunning"
+                v-show="frpcStore.frpcProcessRunning"
                 class="z-0 rounded-full opacity-20 top-circle bg-[#5A3DAA] w-full h-full animation-rotate-3"
               />
             </transition>
@@ -231,9 +231,9 @@ onUnmounted(() => {
               >
                 <el-text
                   class="break-all line-clamp-2 text-primary"
-                  :title="frpcDesktopStore.frpcConnectionError"
+                  :title="frpcStore.frpcConnectionError"
                 >
-                  {{ frpcDesktopStore.frpcConnectionError }}
+                  {{ frpcStore.frpcConnectionError }}
                 </el-text>
                 <div class="mt-1">
                   <el-link
@@ -269,7 +269,7 @@ onUnmounted(() => {
                 :disabled="loading"
                 @click="handleButtonClick"
                 >{{
-                  frpcDesktopStore.frpcProcessRunning
+                  frpcStore.frpcProcessRunning
                     ? $t("home.button.stop")
                     : $t("home.button.start")
                 }}

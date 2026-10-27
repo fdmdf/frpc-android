@@ -122,7 +122,6 @@ const defaultForm: FrpcProxy = {
 const editForm = ref<FrpcProxy>(_.cloneDeep(defaultForm));
 
 const proxyTypes = ref(["http", "https", "tcp", "udp", "stcp", "xtcp", "sudp"]);
-const currSelectLocalFileType = ref();
 
 const visitorsModels = ref([
   {
@@ -638,28 +637,6 @@ const handleRandomProxyName = () => {
     `df_${editForm.value.type}_${result}`.toLocaleLowerCase();
 };
 
-const normalizePath = (filePath: string) => {
-  return filePath.replace(/\\/g, "/");
-};
-
-const handleSelectFile = (type: number, ext: string[]) => {
-  currSelectLocalFileType.value = type;
-  send(ipcRouters.SYSTEM.selectLocalFile, {
-    name: "",
-    extensions: ext
-  });
-  // ipcRenderer.invoke("file.selectFile", ext).then(r => {
-  //   switch (type) {
-  //     case 1:
-  //       editForm.value.https2httpCaFile = normalizePath(r[0]);
-  //       break;
-  //     case 2:
-  //       editForm.value.https2httpKeyFile = normalizePath(r[0]);
-  //       break;
-  //   }
-  // });
-};
-
 const listenerCleanups: Array<() => void> = [];
 let hasActivatedOnce = false;
 
@@ -679,27 +656,6 @@ onMounted(() => {
     on(ipcRouters.PROXY.getAllProxies, data => {
       loading.value.list = 0;
       proxys.value = data;
-    })
-  );
-
-  listenerCleanups.push(
-    on(ipcRouters.SYSTEM.selectLocalFile, data => {
-      if (!data.canceled) {
-        switch (currSelectLocalFileType.value) {
-          case 1:
-            editForm.value.https2httpCaFile = data.path as string;
-            break;
-          case 2:
-            editForm.value.https2httpKeyFile = data.path as string;
-            break;
-          case 3:
-            editForm.value.tls2rawCaFile = data.path as string;
-            break;
-          case 4:
-            editForm.value.tls2rawKeyFile = data.path as string;
-            break;
-        }
-      }
     })
   );
 
@@ -1644,19 +1600,11 @@ onUnmounted(() => {
                 >
                   <el-input
                     v-model="editForm.https2httpCaFile"
-                    class="button-input"
                     :placeholder="
                       t('proxy.form.formItem.https2httpCaFile.placeholder')
                     "
-                    readonly
-                    @click="handleSelectFile(1, ['crt', 'pem'])"
+                    clearable
                   />
-                  <!--                  <el-button-->
-                  <!--                    class="ml-2"-->
-                  <!--                    type="primary"-->
-                  <!--                    @click="handleSelectFile(3, ['crt'])"-->
-                  <!--                    >选择-->
-                  <!--                  </el-button>-->
                   <el-button
                     v-if="editForm.https2httpCaFile"
                     class="ml-2"
@@ -1683,19 +1631,11 @@ onUnmounted(() => {
                 >
                   <el-input
                     v-model="editForm.https2httpKeyFile"
-                    class="cursor-pointer button-input"
                     :placeholder="
                       t('proxy.form.formItem.https2httpKeyFile.placeholder')
                     "
-                    readonly
-                    @click="handleSelectFile(2, ['key'])"
+                    clearable
                   />
-                  <!--                  <el-button-->
-                  <!--                    class="ml-2"-->
-                  <!--                    type="primary"-->
-                  <!--                    @click="handleSelectFile(3, ['crt'])"-->
-                  <!--                    >选择-->
-                  <!--                  </el-button>-->
                   <el-button
                     v-if="editForm.https2httpKeyFile"
                     class="ml-2"
@@ -1723,12 +1663,10 @@ onUnmounted(() => {
                   >
                     <el-input
                       v-model="editForm.tls2rawCaFile"
-                      class="button-input"
                       :placeholder="
                         t('proxy.form.formItem.tls2rawCaFile.placeholder')
                       "
-                      readonly
-                      @click="handleSelectFile(3, ['crt', 'pem'])"
+                      clearable
                     />
                     <el-button
                       v-if="editForm.tls2rawCaFile"
@@ -1756,12 +1694,10 @@ onUnmounted(() => {
                   >
                     <el-input
                       v-model="editForm.tls2rawKeyFile"
-                      class="cursor-pointer button-input"
                       :placeholder="
                         t('proxy.form.formItem.tls2rawKeyFile.placeholder')
                       "
-                      readonly
-                      @click="handleSelectFile(4, ['key'])"
+                      clearable
                     />
                     <el-button
                       v-if="editForm.tls2rawKeyFile"
@@ -1800,12 +1736,10 @@ onUnmounted(() => {
                 >
                   <el-input
                     v-model="editForm.tls2rawCaFile"
-                    class="button-input"
                     :placeholder="
                       t('proxy.form.formItem.tls2rawCaFile.placeholder')
                     "
-                    readonly
-                    @click="handleSelectFile(3, ['crt', 'pem'])"
+                    clearable
                   />
                   <el-button
                     v-if="editForm.tls2rawCaFile"
@@ -1824,12 +1758,10 @@ onUnmounted(() => {
                 >
                   <el-input
                     v-model="editForm.tls2rawKeyFile"
-                    class="cursor-pointer button-input"
                     :placeholder="
                       t('proxy.form.formItem.tls2rawKeyFile.placeholder')
                     "
-                    readonly
-                    @click="handleSelectFile(4, ['key'])"
+                    clearable
                   />
                   <el-button
                     v-if="editForm.tls2rawKeyFile"

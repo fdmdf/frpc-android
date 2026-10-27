@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Frpc-Desktop is a cross-platform Tauri 2 desktop application. The webview UI uses Vue 3, TypeScript, Vite, Pinia, Vue Router, Element Plus, and vue-i18n. The Rust backend in `src-tauri/` manages frpc processes, SQLite persistence, downloads, system integration, tray, autostart, and IPC.
+Frpc-Android is an Android-only Tauri 2 application (forked from luckjiawei/frpc-desktop; all desktop code has been removed). The webview UI uses Vue 3, TypeScript, Vite, Pinia, Vue Router, Element Plus, and vue-i18n. The Rust backend in `src-tauri/` manages the frpc process, SQLite persistence, TOML generation, Android native bridging, and IPC.
 
 Use Node.js 22.12 or newer, npm, and a stable Rust toolchain. Keep changes focused; do not edit generated output or downloaded dependencies.
 
@@ -16,13 +16,13 @@ Use Node.js 22.12 or newer, npm, and a stable Rust toolchain. Keep changes focus
   - `core/IpcRouter.ts`: canonical IPC route paths and event channels.
   - `utils/ipcUtils.ts`: frontend IPC helpers (`invoke("ipc_send")` and event listeners).
 - `src-tauri/`: Tauri Rust backend.
-  - `src/lib.rs`: application startup, data directory, window, tray, and autostart wiring.
+  - `src/lib.rs`: application startup, data directory, window, and Android plugin wiring.
   - `src/commands/`: `ipc_send` dispatcher that maps route paths to backend behavior.
   - `src/db/`: SQLite (rusqlite) connection, migration runner, and repositories.
   - `migrations/`: ordered SQLite migration files.
-  - `src/downloader/`, `src/process/`, `src/config_gen/`, `src/system/`: frpc versions, frpc process, TOML generation, and OS integration.
+  - `src/process/`, `src/config_gen/`, `src/system/`, `src/android.rs`: frpc process, TOML generation, log/release helpers, and the Kotlin plugin bridge.
   - `src/models.rs`: Rust payload models serialized to the frontend and JSON columns.
-  - `tauri.conf.json`, `capabilities/`, `icons/`: Tauri app configuration and bundle assets.
+  - `tauri.conf.json`, `capabilities/`, `icons/`: Tauri app configuration and Android icon sources.
 - `types/`: global TypeScript declarations shared by frontend code.
 - `public/`: static assets and logos.
 - `scripts/`: npm helper scripts (for example `run-tauri.mjs`).
@@ -33,13 +33,14 @@ Use Node.js 22.12 or newer, npm, and a stable Rust toolchain. Keep changes focus
 
 ```sh
 npm ci
-npm run tauri:dev
 npm run lint
 npm run build
+npm run android:frpc   # cross-compile the bundled frpc engine
+npm run android:apk    # assemble the APK
 cd src-tauri && cargo test
 ```
 
-`npm run tauri:dev` starts Vite and the Tauri development app. `npm run dev` starts only the Vite frontend; Tauri APIs are unavailable in a plain browser. `npm run build` runs `vue-tsc --noEmit` before the Vite production build. `npm run tauri:build` produces platform installers and is not a routine validation step.
+`npm run dev` starts only the Vite frontend; Tauri APIs are unavailable in a plain browser. `npm run build` runs `vue-tsc --noEmit` before the Vite production build. `npm run android:dev` runs the app on a device or emulator, and `npm run android:apk` assembles a debug APK (add `-- aarch64-linux-android --release` for a signed release build).
 
 For normal code changes, run lint, build, and the Rust tests. For UI or backend behavior changes, also exercise the affected workflow in the development app and report what was checked.
 
@@ -58,8 +59,8 @@ For normal code changes, run lint, build, and the Rust tests. For UI or backend 
 ## Data and Security
 
 - Treat configuration, tokens, proxy definitions, logs, and local paths as sensitive. Do not log secrets or include real credentials in fixtures, screenshots, or examples.
-- Preserve compatibility with existing user data: the app data directory (`<config dir>/Frpc-Desktop`), the SQLite database, Electron 1.x frpc binary names, and frpc configuration formats. Schema, path, or filename changes require an explicit migration or backward-compatible fallback.
-- Keep the bundle identifier `priv.liujiawei.frpc.desktop` so installs upgrade in place.
+- Preserve compatibility with existing user data: the app data directory (Android `app_data_dir()`), the SQLite database (`db/frpc-android.sqlite3`), and frpc configuration formats. Schema, path, or filename changes require an explicit migration or backward-compatible fallback.
+- Keep the Android application id `priv.fdmdf.frpc.android` so installs upgrade in place; the Kotlin package and the Rust plugin identifier must match it exactly.
 - Validate frontend-provided IPC arguments in Rust before using them in paths, shell operations, downloads, or process commands.
 
 ## Documentation and Commits

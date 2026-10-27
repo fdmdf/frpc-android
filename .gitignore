@@ -29,10 +29,13 @@ pnpm-lock.yaml
 src-tauri/gen/android/app/build/
 src-tauri/gen/android/.gradle/
 src-tauri/gen/android/local.properties
+src-tauri/gen/android/buildSrc/.gradle/
+src-tauri/gen/android/buildSrc/.kotlin/
+src-tauri/gen/android/buildSrc/build/
 # 前端资源由打包脚本从 dist/ 拷入，不入库
 src-tauri/gen/android/app/src/main/assets/
 src-tauri/gen/android/app/src/main/jniLibs/*/libfrpc.so
-src-tauri/gen/android/app/src/main/jniLibs/*/libfrpc_desktop_lib.so
+src-tauri/gen/android/app/src/main/jniLibs/*/libfrpc_android_lib.so
 *.apk
 *.aab
 *.jks

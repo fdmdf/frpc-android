@@ -8,7 +8,7 @@ impl AppConfigRepository {
     pub fn get_system_config(conn: &Connection) -> Result<FrpcSystemConfiguration> {
         let mut stmt = conn.prepare(
             "SELECT config_key, config_value FROM t_frpcd_app_config
-             WHERE scope_type = 'global' AND scope_id IS NULL AND namespace = 'desktop' AND deleted_at IS NULL"
+             WHERE scope_type = 'global' AND scope_id IS NULL AND namespace = 'app' AND deleted_at IS NULL"
         )?;
 
         let rows = stmt.query_map([], |row| {
@@ -24,16 +24,6 @@ impl AppConfigRepository {
             }
         }
 
-        let launch_at_startup = values
-            .get("launch_at_startup")
-            .map(|v| v == "true" || v == "1")
-            .unwrap_or(false);
-
-        let silent_startup = values
-            .get("silent_startup")
-            .map(|v| v == "true" || v == "1")
-            .unwrap_or(false);
-
         let auto_connect_on_startup = values
             .get("auto_connect_on_startup")
             .map(|v| v == "true" || v == "1")
@@ -45,8 +35,6 @@ impl AppConfigRepository {
             .unwrap_or_else(|| "en-US".to_string());
 
         Ok(FrpcSystemConfiguration {
-            launch_at_startup,
-            silent_startup,
             auto_connect_on_startup,
             language,
         })
@@ -56,18 +44,16 @@ impl AppConfigRepository {
         conn: &Connection,
         config: &FrpcSystemConfiguration,
     ) -> Result<()> {
-        Self::upsert(conn, "desktop", "launch_at_startup", "boolean", &config.launch_at_startup.to_string())?;
-        Self::upsert(conn, "desktop", "silent_startup", "boolean", &config.silent_startup.to_string())?;
-        Self::upsert(conn, "desktop", "auto_connect_on_startup", "boolean", &config.auto_connect_on_startup.to_string())?;
-        Self::upsert(conn, "desktop", "language", "string", &config.language)?;
+        Self::upsert(conn, "app", "auto_connect_on_startup", "boolean", &config.auto_connect_on_startup.to_string())?;
+        Self::upsert(conn, "app", "language", "string", &config.language)?;
         Ok(())
     }
 
     pub fn save_language(conn: &Connection, language: &str) -> Result<()> {
-        Self::upsert(conn, "desktop", "language", "string", language)
+        Self::upsert(conn, "app", "language", "string", language)
     }
 
-    /// Onboarding state lives outside the `desktop` namespace so that
+    /// Onboarding state lives in its own `onboarding` namespace so that
     /// "reset all config" does not replay the guide.
     pub fn is_guide_completed(conn: &Connection) -> Result<bool> {
         conn.query_row(

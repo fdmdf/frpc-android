@@ -1,4 +1,4 @@
-import { useFrpcDesktopStore } from "@/store/frpcDesktop";
+import { useFrpcStore } from "@/store/frpc";
 import "animate.css";
 import { createPinia } from "pinia";
 import { createApp } from "vue";
@@ -10,7 +10,6 @@ import {
 import i18n from "./lang";
 import { installElementPlus } from "./plugins/elementPlus";
 import router from "./router";
-import { useSystemUsageStore } from "./store/systemUsage";
 import "./styles/index.scss";
 
 const pinia = createPinia();
@@ -26,20 +25,15 @@ app
   .use(pinia)
   .mount("#app")
   .$nextTick(() => {
-    const frpcDesktopStore = useFrpcDesktopStore();
-    frpcDesktopStore.onListenerFrpcProcessRunning();
-    frpcDesktopStore.refreshRunning();
-    frpcDesktopStore.onListenerDownloadedVersion();
-    frpcDesktopStore.onListenerFrpcDesktopGithubLastRelease();
-    frpcDesktopStore.refreshDownloadedVersion();
+    const frpcStore = useFrpcStore();
+    frpcStore.onListenerFrpcProcessRunning();
+    frpcStore.refreshRunning();
+    frpcStore.onListenerAppLastRelease();
     window.setTimeout(() => {
-      frpcDesktopStore.checkNewVersion(false);
+      frpcStore.checkNewVersion(false);
     }, 4000);
-    frpcDesktopStore.onListenerFrpcDesktopLanguage();
-    frpcDesktopStore.getLanguage();
-
-    const systemUsageStore = useSystemUsageStore();
-    systemUsageStore.onListenerSystemUsage();
+    frpcStore.onListenerFrpcLanguage();
+    frpcStore.getLanguage();
 
     postMessage({ payload: "removeLoading" }, "*");
   })

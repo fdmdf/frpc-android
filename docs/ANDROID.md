@@ -1,6 +1,6 @@
 # Android 适配
 
-本文记录 Frpc-Desktop 的 Android 端实现方案，并对照参考项目
+本文记录 Frpc-Android（原 Frpc-Desktop 的安卓分支）的实现方案，并对照参考项目
 [fdmdf/frpc-android](https://github.com/fdmdf/frpc-android) 做了取舍分析。
 
 ## 一、参考项目 frpc-android 的关键实现
@@ -72,18 +72,16 @@ Android 10 起应用数据目录禁止 `execve`（W^X 限制）。参考项目�
 
 | 能力 | 实现位置 |
 | --- | --- |
-| Android 工程 | `src-tauri/gen/android`（`tauri android init` 生成） |
+| Android 工程 | `src-tauri/gen/android`（`tauri android init` 生成，包名 `priv.fdmdf.frpc.android`） |
 | 引擎分发 | `jniLibs/{arm64-v8a,armeabi-v7a,x86_64}/libfrpc.so` + `extractNativeLibs` + `useLegacyPackaging` |
 | 引擎定位 | `src-tauri/src/android.rs`：Kotlin 返回 `nativeLibraryDir`，拼 `libfrpc.so` |
 | 执行链路 | `src-tauri/src/process/mod.rs`：Android 分支先 `chmod 755`、拉起前台服务再 `spawn` |
 | 前台服务 | `FrpcForegroundService.kt`：`specialUse` + 常驻通知 + `PARTIAL_WAKE_LOCK` |
 | 自启桥接 | `FrpcServicePlugin.kt`：`getAppInfo` / `startService` / `stopService` / `updateNotification` / `openUrl` |
-| 桌面 API 隔离 | `Cargo.toml` 按目标拆分依赖；`lib.rs` 中托盘、autostart、窗口隐藏、macOS Dock 全部 `#[cfg(desktop)]` |
-| 数据目录 | 桌面沿用 `<config>/Frpc-Desktop`，Android 用 `app_data_dir()` |
-| 文件选择器 | `src-tauri/src/dialogs.rs`：桌面 rfd，移动端退化为「取消」 |
+| 数据目录 | `app_data_dir()`（应用私有目录），SQLite 为 `db/frpc-android.sqlite3` |
 | 崩溃自动重启 | `process/mod.rs`：`2/5/10/30/60s` 退避，最多 5 次 |
-| 移动端 UI | `src/styles/mobile.scss`：底部导航、单列表单、全屏弹窗、安全区 |
-| 端内降级 | 隐藏「版本下载」页、自定义 frpc 路径、开机自启/静默启动、导入导出/打开数据目录 |
+| 移动端 UI | `src/styles/layout.scss`：底部导航、单列表单、全屏弹窗、安全区 |
+| 包名 | `priv.fdmdf.frpc.android`（applicationId / Kotlin 包名 / Rust 插件标识符一致） |
 
 ### 与参考项目的差距
 
@@ -113,7 +111,7 @@ Android 10 起应用数据目录禁止 `execve`（W^X 限制）。参考项目�
 
 4. **代理状态接入 admin API**
    - 文件：`src-tauri/src/frpc_admin.rs`（新增）、`commands/mod.rs`、`models.rs`、
-     `src/store/frpcDesktop.ts`、`src/views/proxy/index.vue`。
+     `src/store/frpc.ts`、`src/views/proxy/index.vue`。
    - 逻辑：frpc 运行且 `webServer.enable` 时，每 4s 请求
      `http://127.0.0.1:<port>/api/status`（带 Basic Auth），把
      `{name, status, remoteAddr, err}` 通过 `frpcProxy:watchStatus` 事件推给前端；
@@ -152,13 +150,13 @@ node scripts/build-frpc-android.mjs          # 生成 jniLibs/*/libfrpc.so
 # 不想编（或环境没有 npm）时加 FRP_WEB=0，会以 -tags noweb 编译，只是仪表盘不可用。
 export ANDROID_HOME=$HOME/AppData/Local/Android/Sdk
 export NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018
-npm run tauri -- android build --apk --target aarch64
+npm run android:apk    # 内部会带上 --features custom-protocol
 ```
 
 调试：
 
 ```sh
-npm run tauri:android:dev
+npm run android:dev
 ```
 
 ### Windows 构建注意
@@ -172,7 +170,7 @@ npm run tauri:android:dev
 ```sh
 # ⚠️ 必须带 --features custom-protocol，否则 WebView 会去连 devUrl（localhost:3344）
 cargo build --features custom-protocol --target aarch64-linux-android
-cp target/aarch64-linux-android/debug/libfrpc_desktop_lib.so \
+cp target/aarch64-linux-android/debug/libfrpc_android_lib.so \
    gen/android/app/src/main/jniLibs/arm64-v8a/
 cd gen/android && ./gradlew assembleDebug -x rustBuildArm64Debug
 ```
@@ -215,9 +213,9 @@ Android 8+ 走 `mipmap-anydpi-v26/ic_launcher.xml` 的 adaptive icon：
 不配则产出未签名包（无法安装）：
 
 ```sh
-export KEYSTORE_PATH=/path/to/frpc-desktop.jks
+export KEYSTORE_PATH=/path/to/frpc-android.jks
 export KEYSTORE_PASSWORD=***
-export KEY_ALIAS=frpc-desktop
+export KEY_ALIAS=frpc-android
 export KEY_PASSWORD=***
 
 npm run android:apk -- --release     # 产物 app/build/outputs/apk/arm64/release/app-arm64-release.apk
@@ -225,17 +223,17 @@ npm run android:apk -- --release     # 产物 app/build/outputs/apk/arm64/releas
 
 release 变体里显式关闭了 `isMinifyEnabled` 与 `isShrinkResources`，**不要打开**：
 R8 会重命名 Kotlin 插件类，而 Rust 侧靠 `Class.forName` 反射加载
-`priv.liujiawei.frpc.desktop.FrpcServicePlugin`，混淆后启动即崩溃。
+`priv.fdmdf.frpc.android.FrpcServicePlugin`，混淆后启动即崩溃。
 
-> 当前密钥放在仓库外：`C:/Users/Liao/.android-keystores/frpc-desktop.jks`。
+> 当前密钥放在仓库外：`C:/Users/Liao/.android-keystores/frpc-android.jks`。
 > 更换签名密钥会导致已安装用户无法覆盖升级，务必备份。
 
-### 发布到私有仓库 Release
+### 发布到 GitHub Release
 
 ```sh
 GITHUB_TOKEN=<PAT> GITHUB_REPO=owner/repo \
   npm run release:github -- --tag v2.0.0 \
-    --file <apk 路径> --rename frpc-desktop-2.0.0-android-arm64.apk \
+    --file <apk 路径> --rename frpc-android-2.0.0-android-arm64.apk \
     --notes-file notes.md
 ```
 
@@ -253,14 +251,14 @@ GITHUB_TOKEN=<PAT> GITHUB_REPO=owner/repo \
 `register_android_plugin(identifier, class)` 内部拼成 `{identifier}.{className}` 后走
 `Class.forName`（见 `wry::find_class` → `WryActivity.getAppClass`）。标识符写成
 `frpc-android` 时，实际查找的是
-`frpc-android.priv.liujiawei.frpc.desktop.FrpcServicePlugin`，必然
+`frpc-android.priv.fdmdf.frpc.android.FrpcServicePlugin`，必然
 `ClassNotFoundException`；错误经 `setup` 冒泡到 `.expect("error while running tauri application")`
 直接 panic，表现就是打开应用瞬间闪退。
 
-正确写法（与官方插件一致，`tauri-plugin-dialog` 用的是 `app.tauri` + `DialogPlugin`）：
+正确写法（与 Tauri 官方移动端插件一致，identifier 就是 Kotlin 包名）：
 
 ```rust
-const PLUGIN_NAME: &str = "priv.liujiawei.frpc.desktop"; // Kotlin 包名
+const PLUGIN_NAME: &str = "priv.fdmdf.frpc.android"; // Kotlin 包名
 const PLUGIN_CLASS: &str = "FrpcServicePlugin";          // 简单类名
 ```
 
@@ -268,15 +266,17 @@ const PLUGIN_CLASS: &str = "FrpcServicePlugin";          // 简单类名
 
 ### 2. 主窗口 `visible: false` → 移动端白屏
 
-`tauri.conf.json` 里主窗口不可见，桌面端在 `setup` 中按需 `show()`，移动端原本没有对应逻辑。
-现已补上 `#[cfg(mobile)]` 分支，setup 阶段无条件显示主窗口。
+`tauri.conf.json` 里主窗口 `visible: false`，移动端在 `setup` 中无条件 `show()`，
+否则打开应用只会看到一个空白 Activity。
 
 ## 六、已知限制
 
 - **用途边界**：手机上的 `localIP:localPort` 指手机自身。想穿透电脑上的服务，
   必须填电脑的局域网 IP，或改用「手机自身服务穿透」。
-- **开机自启不可用**：受 Tauri 架构限制，需完成 P3 后才能实现。
+- **开机自启不可用**：桌面端的 `launchAtStartup` / `silentStartup` 配置已随桌面端移除，
+  安卓上改由前台服务（`FrpcForegroundService`）保活，应用被系统回收后不会自动拉起。
 - **ABI**：`armeabi-v7a` / `x86_64` 使用 `GOOS=linux` 静态二进制（Go 对
   `android/arm`、`android/amd64` 要求 cgo 外部链接），真机以 arm64 为主，
   其余两种仅用于兼容与模拟器。
-- **引擎版本固定**：不支持在线切换 frpc 版本；升级需重新打包。
+- **引擎版本固定**：在线下载/切换 frpc 版本、导入本地 frpc 的能力已随桌面端一起移除，
+  frpc 固定为随包内置的 `libfrpc.so`（frp v0.71.1），升级需重新打包。

@@ -3,21 +3,17 @@ import { IconifyIconOffline } from "@/components/IconifyIcon";
 import { ipcRouters } from "@/core/IpcRouter";
 import Intro from "@/intro";
 import router from "@/router";
-import { useSystemUsageStore } from "@/store/systemUsage";
 import { on, send } from "@/utils/ipcUtils";
 import { useI18n } from "vue-i18n";
 import confetti from "canvas-confetti/src/confetti.js";
 import "intro.js/introjs.css";
 import { computed, defineComponent, onMounted, onUnmounted, ref } from "vue";
 import { RouteRecordRaw } from "vue-router";
-import pkg from "../../../package.json";
 
 defineComponent({
-  name: "AppMain"
+  name: "BottomNav"
 });
 
-// const frpcDesktopStore = useFrpcDesktopStore();
-const systemUsageStore = useSystemUsageStore();
 const { t } = useI18n();
 const routes = ref<Array<RouteRecordRaw>>([]);
 const guideSteps = ref({
@@ -30,24 +26,15 @@ const guideSteps = ref({
     intro:
       "在这里，您可以方便地配置和管理代理设置。无论是添加、修改还是删除代理，您都可以轻松完成。"
   },
-  Download: {
-    step: "3",
-    intro: "通过此功能，您可以快速下载最新版本的frp。"
-  },
   Config: {
-    step: "4",
+    step: "3",
     intro:
       "此功能允许您设置软件的各种配置选项，包括连接方式等。根据您的需求进行个性化设置，以优化使用体验。"
   },
   Logger: {
-    step: "5",
+    step: "4",
     intro:
       "在日志查看功能中，您可以实时查看FRP连接的日志信息。这有助于您监控连接状态，及时排查可能出现的问题。"
-  },
-  Version: {
-    step: "6",
-    intro:
-      "通过此功能，您可以查看当前安装的Frpc-Desktop版本，并检查是否有可用更新。"
   }
 });
 const currentRoute = computed(() => {
@@ -64,13 +51,6 @@ const handleMenuChange = (route: any) => {
   }
   router.push({
     path: route.path
-  });
-};
-
-const handleOpenGitHubReleases = () => {
-  // ipcRenderer.send("github.openReleases")
-  router.push({
-    name: "About"
   });
 };
 
@@ -93,22 +73,19 @@ onMounted(() => {
     f => !f.meta?.hidden
   ) as Array<RouteRecordRaw>;
 
-  offGuideStatus = on(
-    ipcRouters.SYSTEM.getGuideStatus,
-    (completed: boolean) => {
-      if (completed) {
-        return;
-      }
-      // 兼容旧版本保存在 localStorage 中的引导状态
-      if (localStorage.getItem("guide")) {
-        send(ipcRouters.SYSTEM.completeGuide);
-        localStorage.removeItem("guide");
-        return;
-      }
-      // 开始
-      Intro.onBeforeExit(handleCompleteGuide).start();
+  offGuideStatus = on(ipcRouters.SYSTEM.getGuideStatus, (completed: boolean) => {
+    if (completed) {
+      return;
     }
-  );
+    // 兼容旧版本保存在 localStorage 中的引导状态
+    if (localStorage.getItem("guide")) {
+      send(ipcRouters.SYSTEM.completeGuide);
+      localStorage.removeItem("guide");
+      return;
+    }
+    // 开始
+    Intro.onBeforeExit(handleCompleteGuide).start();
+  });
   send(ipcRouters.SYSTEM.getGuideStatus);
 });
 
@@ -118,20 +95,8 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="drop-shadow-xl left-menu-container">
-    <div class="logo-container">
-      <!--      <img-->
-      <!--        src="/logo/only/128x128.png"-->
-      <!--        class="logo animate__animated animate__bounceInLeft"-->
-      <!--        alt="Logo"-->
-      <!--      />-->
-      <!--      <el-badge :value="'v1.1.2'" class="logo" type="primary" :offset="[-10, 42]">-->
-      <img src="/logo/only/128x128.png" class="logo" alt="Logo" />
-      <!--      </el-badge>-->
-    </div>
+  <div class="left-menu-container">
     <ul class="menu-container">
-      <!--      enter-active-class="animate__animated animate__bounceIn"-->
-      <!--      leave-active-class="animate__animated animate__fadeOut"-->
       <li
         v-for="r in routes"
         :key="r.name"
@@ -146,60 +111,8 @@ onUnmounted(() => {
           class="animate__animated"
           :icon="r?.meta?.icon as string"
         ></IconifyIconOffline>
-        <!-- 桌面端是纯图标侧栏，底部导航（移动端）才显示文字标签 -->
         <span class="menu-label">{{ t(r?.meta?.title as string) }}</span>
       </li>
     </ul>
-    <div class="mb-2 menu-footer">
-      <!--      <el-tag-->
-      <!--        :type="frpcProcessStore.running ? 'primary' : 'warning'"-->
-      <!--        effect="light"-->
-      <!--        size="small"-->
-      <!--        >{{ frpcProcessStore.running ? "运行中" : "已断开" }}-->
-      <!--      </el-tag>-->
-      <!--      <div-->
-      <!--        class="menu animate__animated"-->
-      <!--        @click="handleOpenGitHubReleases"-->
-      <!--        :data-step="guideSteps.Version?.step"-->
-      <!--        :data-intro="guideSteps.Version?.intro"-->
-      <!--        data-position="top"-->
-      <!--      >-->
-      <!--        <IconifyIconOffline-->
-      <!--          class="animate__animated"-->
-      <!--          icon="attach-money-rounded"-->
-      <!--        ></IconifyIconOffline>-->
-      <!--      </div>-->
-      <div
-        class="flex flex-col gap-2 justify-center items-center text-[12px] text-[#6b7280]"
-      >
-        <div class="flex flex-col justify-center items-center w-full">
-          <p class="flex gap-1 items-center font-medium">
-            <IconifyIconOffline icon="memory-rounded" />
-            CPU
-          </p>
-          <p class="text-[12px] font-bold">
-            {{ systemUsageStore.systemUsageCpu }}%
-          </p>
-        </div>
-        <div class="flex flex-col justify-center items-center w-full">
-          <p class="flex gap-1 items-center font-medium">
-            <IconifyIconOffline icon="memory-alt-rounded" />
-            内存
-          </p>
-          <p class="text-[12px] font-bold">
-            {{ systemUsageStore.formattedMemory }}
-          </p>
-        </div>
-      </div>
-      <div
-        class="version animate__animated"
-        :data-step="guideSteps.Version?.step"
-        :data-intro="guideSteps.Version?.intro"
-        data-position="top"
-        @click="handleOpenGitHubReleases"
-      >
-        {{ pkg.version }}
-      </div>
-    </div>
   </div>
 </template>

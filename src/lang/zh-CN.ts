@@ -1,7 +1,7 @@
 export default {
   app: {
-    title: "Frpc Desktop",
-    description: "开机自启 / 可视化配置 / 免费开源，提供便捷的使用体验。"
+    title: "Frpc Android",
+    description: "后台保活 / 可视化配置 / 免费开源，提供便捷的使用体验。"
   },
   router: {
     home: {
@@ -9,9 +9,6 @@ export default {
     },
     proxy: {
       title: "代理"
-    },
-    download: {
-      title: "下载"
     },
     config: {
       title: "设置"
@@ -48,11 +45,6 @@ export default {
         message: "请先前往设置页面，修改配置后再启动",
         confirm: "去设置"
       },
-      versionNotFound: {
-        title: "提示",
-        message: "请先前往设置页面，选择版本后再启动",
-        confirm: "去设置"
-      },
       webServerPortInUse: {
         title: "提示",
         message: "Web界面端口已被占用，请前往设置页面更换 Web界面端口后再启动",
@@ -60,54 +52,8 @@ export default {
       }
     }
   },
-  comingSoon: {
-    description: "敬请期待"
-  },
-  download: {
-    button: {
-      import: "导入"
-    },
-    mirror: {
-      placeholder: "下载代理"
-    },
-    viewMode: {
-      card: "卡片",
-      list: "列表"
-    },
-    message: {
-      importSuccess: "导入成功",
-      deleteSuccess: "删除成功",
-      copyDownloadLinkSuccess: "复制下载链接成功"
-    },
-    alert: {
-      deleteConfirm: {
-        title: "提示",
-        message:
-          '确认要删除 <span class="font-bold text-primary">{name}</span> 吗？',
-        cancel: "取消",
-        confirm: "删除"
-      },
-      importFailed: {
-        title: "导入失败",
-        versionExists: "版本已存在",
-        architectureNotMatch: "所选 frp 架构与操作系统不符",
-        unrecognizedFile: "无法识别文件"
-      }
-    },
-    version: {
-      size: "大小",
-      downloadCount: "下载数：",
-      publishTime: "发布时间：",
-      downloaded: "已下载",
-      notDownloaded: "未下载",
-      download: "下载",
-      downloadLink: "下载链接",
-      noVersions: "暂无可用版本"
-    }
-  },
   logger: {
     message: {
-      openSuccess: "打开日志成功",
       refreshSuccess: "刷新成功"
     },
     content: {
@@ -134,11 +80,11 @@ export default {
       issues: "反馈问题"
     },
     features: {
-      autoStart: "开机自启",
+      keepAlive: "后台保活",
       visualConfig: "可视化配置",
       freeAndOpen: "免费开源"
     },
-    description: "FRP跨平台桌面客户端，可视化配置，轻松实现内网穿透！",
+    description: "FRP 安卓客户端，可视化配置，轻松实现内网穿透！",
     version: {
       latest: "最新版本"
     },
@@ -148,23 +94,8 @@ export default {
   },
   config: {
     form: {
-      customFrpcPath: {
-        label: "frpc 路径",
-        placeholder:
-          "支持输入二进制文件路径，如 ~/.local/bin/frpc，或点击自动检测",
-        tips: "支持手动输入 frpc 二进制文件路径（如 <span class='font-black text-[#5A3DAA]'>~/.local/bin/frpc</span>、<span class='font-black text-[#5A3DAA]'>/usr/local/bin/frpc</span>）或点击自动检测。配置后将优先使用该二进制程序启动。",
-        detectedVersion: "当前识别版本",
-        autoDetectSuccess: "已自动检测到 frpc：",
-        autoDetectNotFound:
-          "未检测到可用的 frpc 二进制文件，请确认已安装或在下方选择下载版本",
-        invalidPath: "指定路径不存在或没有执行权限"
-      },
       frpcVerson: {
-        label: "下载版本",
-        placeholder: "未指定自定义路径时，将使用此处选择的下载版本",
-        requireMessage: "请选择Frp版本",
-        requireEitherMessage: "请配置自定义 frpc 路径或选择一个下载版本",
-        fallbackTips: "未指定自定义路径时，将使用此处选择的下载版本",
+        label: "内置版本",
         androidBuiltin: "随应用内置，无需下载或配置路径"
       },
       serverAddr: {
@@ -217,16 +148,6 @@ export default {
         label: "代理地址",
         requireMessage: "请输入代理地址",
         patternMessage: "请输入正确的代理地址"
-      },
-      systemLaunchAtStartup: {
-        label: "开机自启",
-        requireMessage: "请选择是否开机自启",
-        tips: " 开启后开机时自动启动 Frpc-Desktop"
-      },
-      systemSilentStartup: {
-        label: "静默启动",
-        requireMessage: "请选择是否开启静默启动",
-        tips: " 开启后启动时<span class='font-black text-[#5A3DAA]'>不打开界面</span>"
       },
       systemAutoConnectOnStartup: {
         label: "自动连接",
@@ -315,10 +236,7 @@ export default {
       serverConfiguration: "服务器配置"
     },
     button: {
-      autoDetect: "自动检测",
-      browse: "浏览...",
       manualRefresh: "手动刷新",
-      goToDownload: "点击这里去下载",
       clear: "清除",
       import: "导入",
       saveWithShortcut: "保存 (Ctrl+S / ⌘S)"
@@ -335,25 +253,15 @@ export default {
         message: "重置成功 请重启软件",
         confirm: "立即重启"
       },
-      importTomlConfigSuccess: {
-        title: "提示",
-        message: "🎉 恭喜你，导入成功 请重启软件",
-        confirm: "立即重启"
-      },
       multiuserAlert: {
         title: "提示",
         message:
           "多用户插件需要 Frp版本 >= <span class='font-black text-[#5A3DAA]'>v0.31.0</span> 请自行选择正确版本",
         confirm: "知道了"
       },
-      exportConfigSuccess: {
-        title: "🎉 导出成功",
-        message: "配置路径：{path}"
-      }
     },
     message: {
       invalidLink: "链接不正确 请输入正确的链接",
-      openAppDataSuccess: "打开数据目录成功",
       saveSuccess: "保存成功"
     },
     popover: {
@@ -368,7 +276,7 @@ export default {
         message: "复制成功",
         warning: {
           message:
-            "生成内容包含服务器密钥等内容 请妥善保管 且链接仅在Frpc-Desktop中可用"
+            "生成内容包含服务器密钥等内容 请妥善保管 且链接仅在Frpc-Android中可用"
         }
       }
     }

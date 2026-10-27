@@ -109,10 +109,10 @@ run(
 
 // 2. strip 后放进 jniLibs
 const profile = process.argv.includes("--release") ? "release" : "debug";
-const built = join(tauriDir, "target", target, profile, "libfrpc_desktop_lib.so");
+const built = join(tauriDir, "target", target, profile, "libfrpc_android_lib.so");
 const jniDir = join(androidDir, "app", "src", "main", "jniLibs", abi);
 mkdirSync(jniDir, { recursive: true });
-const stripped = join(jniDir, "libfrpc_desktop_lib.so");
+const stripped = join(jniDir, "libfrpc_android_lib.so");
 copyFileSync(built, stripped);
 run(join(ndkBin, `llvm-strip${platform() === "win32" ? ".exe" : ""}`), [
   "--strip-unneeded",

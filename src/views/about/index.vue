@@ -1,7 +1,6 @@
 <script lang="ts" setup>
-import gitcodeIcon from "@/assets/GitCode.svg";
 import Breadcrumb from "@/layout/compoenets/Breadcrumb.vue";
-import { useFrpcDesktopStore } from "@/store/frpcDesktop";
+import { useFrpcStore } from "@/store/frpc";
 import { send } from "@/utils/ipcUtils";
 import { Icon } from "@iconify/vue";
 import { computed, defineComponent, onMounted, onUnmounted } from "vue";
@@ -9,18 +8,18 @@ import { useI18n } from "vue-i18n";
 import { ipcRouters } from "@/core/IpcRouter";
 import pkg from "../../../package.json";
 
-const frpcDesktopStore = useFrpcDesktopStore();
+const frpcStore = useFrpcStore();
 const { t } = useI18n();
 
 /**
  * 最后一个版本号
  */
 const isLastVersion = computed(() => {
-  if (!frpcDesktopStore.frpcDesktopLastRelease) {
+  if (!frpcStore.appLastRelease) {
     return true;
   }
   // tagName相对固定
-  const tagName = frpcDesktopStore.frpcDesktopLastRelease["tag_name"];
+  const tagName = frpcStore.appLastRelease["tag_name"];
   if (!tagName) {
     return true;
   }
@@ -35,7 +34,7 @@ const isLastVersion = computed(() => {
  */
 const handleOpenGitHubIssues = () => {
   send(ipcRouters.SYSTEM.openUrl, {
-    url: "https://github.com/luckjiawei/frpc-desktop/issues"
+    url: "https://github.com/fdmdf/frpc-android/issues"
   });
 };
 
@@ -44,13 +43,7 @@ const handleOpenGitHubIssues = () => {
  */
 const handleOpenGitHub = () => {
   send(ipcRouters.SYSTEM.openUrl, {
-    url: "https://github.com/luckjiawei/frpc-desktop"
-  });
-};
-
-const handleOpenGitCode = () => {
-  send(ipcRouters.SYSTEM.openUrl, {
-    url: "https://gitcode.com/luckjiawei/frpc-desktop"
+    url: "https://github.com/fdmdf/frpc-android"
   });
 };
 
@@ -76,12 +69,12 @@ const handleOpenDoc = () => {
  * 获取最后一个版本
  */
 const handleGetLastVersion = () => {
-  frpcDesktopStore.checkNewVersion(true);
+  frpcStore.checkNewVersion(true);
 };
 
 const handleOpenNewVersion = () => {
   send(ipcRouters.SYSTEM.openUrl, {
-    url: frpcDesktopStore.frpcDesktopLastRelease["html_url"]
+    url: frpcStore.appLastRelease["html_url"]
   });
 };
 
@@ -90,7 +83,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
-  // removeRouterListeners(ipcRouters.SYSTEM.getFrpcDesktopGithubLastRelease);
+  // removeRouterListeners(ipcRouters.SYSTEM.getGithubLastRelease);
 });
 
 defineComponent({
@@ -110,7 +103,7 @@ defineComponent({
           class="w-[95px] h-[95px] mt-[-50px] animate__animated animate__flip"
           alt="Logo"
         />
-        <div class="mt-[8px] text-2xl">Frpc Desktop</div>
+        <div class="mt-[8px] text-2xl">Frpc Android</div>
         <div class="mt-[8px] text-neutral-400 flex items-center">
           <el-link
             :class="!isLastVersion ? 'line-through' : ''"
@@ -118,11 +111,11 @@ defineComponent({
             >v{{ pkg.version }}
           </el-link>
           <el-link
-            v-if="!isLastVersion && frpcDesktopStore.frpcDesktopLastRelease"
+            v-if="!isLastVersion && frpcStore.appLastRelease"
             class="ml-2 text-[#67C23A] font-bold"
             type="success"
             @click="handleOpenNewVersion"
-            >v{{ frpcDesktopStore.frpcDesktopLastRelease.name }}
+            >v{{ frpcStore.appLastRelease.name }}
           </el-link>
           <IconifyIconOffline
             class="ml-1.5 cursor-pointer check-update"
@@ -133,7 +126,7 @@ defineComponent({
         <div class="mt-[8px] text-sm text-center">
           <p>🎉 {{ t("about.description") }}</p>
           <p>
-            {{ t("about.features.autoStart") }} /
+            {{ t("about.features.keepAlive") }} /
             {{ t("about.features.visualConfig") }} /
             {{ t("about.features.freeAndOpen") }}
           </p>
@@ -142,10 +135,6 @@ defineComponent({
           <el-button plain type="primary" @click="handleOpenGitHub">
             <Icon class="mr-2 cursor-pointer" icon="logos:github-icon" />
             {{ t("about.button.github") }}
-          </el-button>
-          <el-button plain type="primary" @click="handleOpenGitCode">
-            <img :src="gitcodeIcon" class="mr-2 w-4 h-4" alt="GitCode" />
-            GitCode
           </el-button>
         </div>
         <div class="mt-[12px]">

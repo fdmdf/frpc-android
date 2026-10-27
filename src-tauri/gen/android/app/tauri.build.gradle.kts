@@ -3,6 +3,4 @@ val implementation = configurations.getByName("implementation")
 dependencies {
   implementation("androidx.lifecycle:lifecycle-process:2.10.0")
   implementation(project(":tauri-android"))
-  implementation(project(":tauri-plugin-dialog"))
-  implementation(project(":tauri-plugin-opener"))
 }
