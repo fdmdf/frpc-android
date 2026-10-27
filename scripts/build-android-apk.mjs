@@ -7,10 +7,17 @@
 //   2. Rust 产物要先 strip，否则 debug 库 200MB+，打进 APK 会爆炸。
 //
 // 用法：node scripts/build-android-apk.mjs [aarch64-linux-android]
-import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, copyFileSync, readdirSync } from "node:fs";
+import { execFileSync, spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  copyFileSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync
+} from "node:fs";
 import { homedir, platform } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const ABI_DIR = {
   "aarch64-linux-android": "arm64-v8a",
@@ -119,7 +126,67 @@ run(join(ndkBin, `llvm-strip${platform() === "win32" ? ".exe" : ""}`), [
   stripped
 ]);
 
-// 3. Gradle 打包（跳过它自带的 rust 任务，用我们上面编好的产物）
+// 3. tauri.settings.gradle 里写的是「生成它的那台机器」的 cargo 绝对路径，
+//    换机器（尤其 Windows -> CI 的 Linux）直接就 Gradle 配置失败。
+//    用 cargo metadata 查到本机真实位置后把它改掉。
+function fixTauriSettings() {
+  const file = join(androidDir, "tauri.settings.gradle");
+  if (!existsSync(file)) return;
+
+  const original = readFileSync(file, "utf8");
+  if (!/projectDir\s*=\s*new File\(/.test(original)) return;
+
+  let meta;
+  try {
+    const out = execFileSync("cargo", ["metadata", "--format-version", "1"], {
+      cwd: tauriDir,
+      encoding: "utf8",
+      // 依赖多的时候输出远超默认的 1MB，不加会直接 ENOBUFS
+      maxBuffer: 64 * 1024 * 1024,
+      env
+    });
+    meta = JSON.parse(out);
+  } catch {
+    console.log("==> cargo metadata 失败，跳过 tauri.settings.gradle 路径修正");
+    return;
+  }
+
+  const byCrateDir = new Map();
+  for (const p of meta.packages || []) {
+    byCrateDir.set(`${p.name}-${p.version}`, dirname(p.manifest_path));
+  }
+
+  let changed = false;
+  const lines = original.split(/\r?\n/).map(line => {
+    const m = line.match(/^(project\(':[^']+'\)\.projectDir = new File\(")([^"]+)("\))$/);
+    if (!m) return line;
+
+    const parts = m[2].split(/[\\/]+/).filter(Boolean);
+    // tauri 本体路径以 mobile/android 结尾，插件只有 android，
+    // 所以 crate 目录名要按有没有 mobile 段来取。
+    const mobileIdx = parts.indexOf("mobile");
+    const crateDir = mobileIdx >= 0 ? parts[mobileIdx - 1] : parts[parts.length - 2];
+    const base = byCrateDir.get(crateDir);
+    if (!base) return line;
+
+    const target = join(base, ...(mobileIdx >= 0 ? ["mobile", "android"] : ["android"]));
+    if (!existsSync(target)) return line;
+
+    const normalized = target.split("\\").join("/");
+    if (normalized === m[2]) return line;
+    changed = true;
+    return `${m[1]}${normalized}${m[3]}`;
+  });
+
+  if (changed) {
+    writeFileSync(file, lines.join("\n"));
+    console.log("==> 已按本机 cargo 路径修正 tauri.settings.gradle");
+  }
+}
+
+fixTauriSettings();
+
+// 4. Gradle 打包（跳过它自带的 rust 任务，用我们上面编好的产物）
 // Gradle 的 ABI 任务后缀：arm64-v8a -> Arm64，armeabi-v7a -> Arm，x86_64 -> X86_64
 const TASK_ABI = {
   "arm64-v8a": "Arm64",

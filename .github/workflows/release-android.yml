@@ -41,6 +41,13 @@ jobs:
       - name: Check frontend build
         run: npm run build
 
+      # cargo test 是编主机目标来跑的，Linux 下 tauri 会依赖 glib / webkit2gtk，
+      # 不装这些 dev 包 glib-sys 会报找不到 glib-2.0.pc。
+      - name: Install Linux system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
       - name: Install Rust with Android target
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -198,9 +205,13 @@ jobs:
 
       - name: Rename APK
         run: |
+          set -euo pipefail
+          APK_DIR=src-tauri/gen/android/app/build/outputs/apk/arm64/release
+          # 没配签名时产物叫 app-arm64-release-unsigned.apk，这里两种都兼容
+          SRC="$(ls "$APK_DIR"/*.apk | head -1)"
           mkdir -p release-assets
-          cp src-tauri/gen/android/app/build/outputs/apk/arm64/release/app-arm64-release.apk \
-            "release-assets/Frpc-Android-${GITHUB_REF_NAME#v}-android-arm64.apk"
+          cp "$SRC" "release-assets/Frpc-Android-${GITHUB_REF_NAME#v}-android-arm64.apk"
+          ls -l release-assets
 
       - name: Create Release and upload APK
         uses: softprops/action-gh-release@v2
