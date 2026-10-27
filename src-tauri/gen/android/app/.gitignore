@@ -1,0 +1,5 @@
+# frpc 与 Rust 的 .so 体积大且由 CI 现场编译，不入库
+/src/main/jniLibs/**/*.so
+/src/main/assets/tauri.conf.json
+# 模板默认还忽略 /src/main/**/generated、/tauri.build.gradle.kts、/proguard-tauri.pro、
+# /tauri.properties —— 这些都是 Gradle 打包必需的，CI 上无法现场生成，改为入库。

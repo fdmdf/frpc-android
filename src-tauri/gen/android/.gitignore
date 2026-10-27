@@ -1,0 +1,21 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+key.properties
+keystore.properties
+
+/.tauri
+# 模板默认忽略 /tauri.settings.gradle，但它是 Gradle 构建的入口之一，
+# CI 上没有 tauri CLI 现场生成，取消忽略、随仓库提交。
