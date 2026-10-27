@@ -225,8 +225,24 @@ release 变体里显式关闭了 `isMinifyEnabled` 与 `isShrinkResources`，**�
 R8 会重命名 Kotlin 插件类，而 Rust 侧靠 `Class.forName` 反射加载
 `priv.fdmdf.frpc.android.FrpcServicePlugin`，混淆后启动即崩溃。
 
-> 当前密钥放在仓库外：`C:/Users/Liao/.android-keystores/frpc-android.jks`。
+> 当前密钥：仓库根目录 `frpc-android.jks`（`.gitignore` 里用 `*.jks` 排除）。
+> 同一份密钥的 base64 形式为 GitHub Secrets 的 `ANDROID_KEYSTORE_BASE64`，配合
+> `ANDROID_KEY_ALIAS` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_PASSWORD`，
+> GitHub Actions 才能在云端签出可安装的 release APK。
 > 更换签名密钥会导致已安装用户无法覆盖升级，务必备份。
+
+### CI 上的两个必踩坑
+
+1. **`tauri.settings.gradle` 不能直接提交原文。** 里面写的是「生成它的那台机器」的
+   cargo 绝对路径（例如 `C:\Users\xxx\.cargo\registry\src\...\tauri-2.12.0\mobile\android`），
+   换到 Linux Runner 上 Gradle 配置阶段就报
+   `Configuring project ':tauri-android' without an existing directory is not allowed`。
+   打包脚本绕过 tauri CLI 直接调 Gradle，所以没人替你重写。
+   `scripts/build-android-apk.mjs` 里的 `fixTauriSettings()` 用 `cargo metadata`
+   查本机真实路径后改写该文件，**不要删**。
+2. **`cargo test` 是编主机目标来跑的。** Linux CI 上 tauri 会依赖 glib / webkit2gtk，
+   不装 dev 包 glib-sys 直接报找不到 `glib-2.0.pc`。安装命令见
+   `.github/workflows/release-android.yml` 的 "Install Linux system dependencies"。
 
 ### 发布到 GitHub Release
 
