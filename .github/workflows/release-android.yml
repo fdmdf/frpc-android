@@ -46,8 +46,21 @@ jobs:
         with:
           targets: aarch64-linux-android
 
+      # rusqlite 的 bundled SQLite 是 C 源码，cargo check 也要真编一次，
+      # 所以这里必须给出 NDK 的 clang，否则 cc-rs 报找不到 aarch64-linux-android-clang。
+      - name: Install NDK 27
+        id: setup-ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
       - name: Check Rust (android) and run tests
+        env:
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
+          export PATH="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          export CC_aarch64_linux_android="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          export AR_aarch64_linux_android="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
           cd src-tauri
           cargo check --target aarch64-linux-android --features custom-protocol
           cargo test
@@ -81,8 +94,19 @@ jobs:
         with:
           targets: aarch64-linux-android
 
+      - name: Install NDK 27
+        id: setup-ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r27c
+
       - name: Check Rust (android)
+        env:
+          NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
         run: |
+          export PATH="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
+          export CC_aarch64_linux_android="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android24-clang"
+          export AR_aarch64_linux_android="$NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
           cd src-tauri
           cargo check --target aarch64-linux-android --features custom-protocol
 
